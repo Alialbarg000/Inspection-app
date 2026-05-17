@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InspectPro — Field Inspection Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  /* ── TOKENS ───────────────────────────────────────────────── */
+  :root {
+    --bg:        #0d0f12;
+    --surface:   #141619;
+    --card:      #1a1d22;
+    --border:    #272b33;
+    --border-hi: #363c47;
+    --text:      #e8eaed;
+    --muted:     #8a919e;
+    --accent:    #3b82f6;
+    --accent-lo: rgba(59,130,246,.12);
+    --pass:      #22c55e;
+    --pass-lo:   rgba(34,197,94,.12);
+    --fail:      #ef4444;
+    --fail-lo:   rgba(239,68,68,.12);
+    --warn:      #f59e0b;
+    --warn-lo:   rgba(245,158,11,.12);
+    --na:        #64748b;
+    --na-lo:     rgba(100,116,139,.12);
+    --radius:    10px;
+    --radius-lg: 16px;
+    --shadow:    0 4px 24px rgba(0,0,0,.4);
+    --font-display: 'Syne', sans-serif;
+    --font-body:    'DM Sans', sans-serif;
+    --font-mono:    'DM Mono', monospace;
+    --transition:   .18s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── RESET ────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── LAYOUT ───────────────────────────────────────────────── */
+  .app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── TOP NAV ──────────────────────────────────────────────── */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(13,15,18,.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand-mark {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), #6366f1);
+    border-radius: 8px;
+    display: grid; place-items: center;
+  }
+  .brand-mark svg { width: 18px; height: 18px; fill: #fff; }
+  .brand-name {
+    font-family: var(--font-display);
+    font-weight: 800; font-size: 18px;
+    letter-spacing: -.3px;
+    color: var(--text);
+  }
+  .brand-name span { color: var(--accent); }
+
+  .nav-actions { display: flex; align-items: center; gap: 10px; }
+  .badge-count {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--accent-lo); color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 20px; padding: 2px 10px;
+    transition: var(--transition);
+  }
+
+  /* ── PROGRESS STRIP ───────────────────────────────────────── */
+  .progress-strip {
+    height: 3px;
+    background: var(--border);
+    position: relative; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--pass));
+    width: 0%;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── MAIN ─────────────────────────────────────────────────── */
+  .main { flex: 1; display: flex; }
+
+  /* ── SIDEBAR ──────────────────────────────────────────────── */
+  .sidebar {
+    width: 260px; min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    overflow-y: auto;
+    position: sticky; top: 63px; height: calc(100vh - 63px);
+  }
+  .sidebar-title {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 12px; padding: 0 8px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: var(--radius);
+    cursor: pointer; transition: var(--transition);
+    border: 1px solid transparent; margin-bottom: 2px;
+    color: var(--muted); font-size: 13.5px; font-weight: 500;
+  }
+  .nav-item:hover { background: var(--card); color: var(--text); border-color: var(--border); }
+  .nav-item.active { background: var(--accent-lo); color: var(--accent); border-color: var(--accent); }
+  .nav-item.done { color: var(--pass); }
+  .nav-item.done .nav-dot { background: var(--pass); }
+  .nav-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-hi); flex-shrink: 0;
+    transition: var(--transition);
+  }
+  .nav-item.active .nav-dot { background: var(--accent); }
+  .nav-progress {
+    font-family: var(--font-mono); font-size: 11px;
+    margin-left: auto; color: inherit; opacity: .7;
+  }
+  .sidebar-divider { height: 1px; background: var(--border); margin: 16px 8px; }
+
+  /* ── CONTENT ──────────────────────────────────────────────── */
+  .content {
+    flex: 1; padding: 32px 28px 80px;
+    max-width: 860px;
+    overflow-y: auto;
+  }
+
+  /* ── HEADER INFO ──────────────────────────────────────────── */
+  .inspection-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px; margin-bottom: 28px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .inspection-header .full-width { grid-column: 1 / -1; }
+  .field-label {
+    font-family: var(--font-mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); margin-bottom: 6px; display: block;
+  }
+  .field-input {
+    width: 100%; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 14px; color: var(--text); font-family: var(--font-body);
+    font-size: 14px; transition: var(--transition); outline: none;
+  }
+  .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-lo); }
+  .field-input::placeholder { color: var(--muted); }
+
+  /* ── SECTION ──────────────────────────────────────────────── */
+  .section { display: none; animation: fadeIn .25s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 20px;
+  }
+  .section-icon {
+    width: 44px; height: 44px; border-radius: var(--radius);
+    display: grid; place-items: center; flex-shrink: 0;
+    font-size: 20px;
+  }
+  .section-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; }
+  .section-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* ── CHECKLIST ────────────────────────────────────────────── */
+  .checklist { display: flex; flex-direction: column; gap: 10px; }
+
+  .check-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+    transition: var(--transition);
+  }
+  .check-item:hover { border-color: var(--border-hi); }
+  .check-item.status-pass { border-color: var(--pass); background: var(--pass-lo); }
+  .check-item.status-fail { border-color: var(--fail); background: var(--fail-lo); }
+  .check-item.status-warn { border-color: var(--warn); background: var(--warn-lo); }
+  .check-item.status-na   { border-color: var(--na);   background: var(--na-lo); }
+
+  .check-top {
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .check-number {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); margin-top: 2px; flex-shrink: 0; width: 24px;
+  }
+  .check-label { flex: 1; font-size: 14px; font-weight: 500; line-height: 1.4; }
+  .check-required {
+    font-size: 10px; background: var(--fail-lo); color: var(--fail);
+    border: 1px solid var(--fail); border-radius: 4px; padding: 1px 6px;
+    flex-shrink: 0; margin-top: 2px; font-family: var(--font-mono);
+  }
+
+  .status-btns {
+    display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;
+    padding-left: 38px;
+  }
+  .status-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); cursor: pointer;
+    font-size: 12px; font-weight: 500; font-family: var(--font-body);
+    background: transparent; color: var(--muted);
+    transition: var(--transition); white-space: nowrap;
+  }
+  .status-btn:hover { border-color: var(--border-hi); color: var(--text); }
+  .status-btn.pass:hover, .status-btn.pass.active { border-color: var(--pass); background: var(--pass-lo); color: var(--pass); }
+  .status-btn.fail:hover, .status-btn.fail.active { border-color: var(--fail); background: var(--fail-lo); color: var(--fail); }
+  .status-btn.warn:hover, .status-btn.warn.active { border-color: var(--warn); background: var(--warn-lo); color: var(--warn); }
+  .status-btn.na:hover, .status-btn.na.active   { border-color: var(--na);   background: var(--na-lo);   color: var(--na); }
+  .status-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .check-notes {
+    margin-top: 10px; padding-left: 38px;
+    display: none;
+  }
+  .check-item.status-fail .check-notes,
+  .check-item.status-warn .check-notes { display: block; }
+  .check-notes textarea {
+    width: 100%; background: rgba(0,0,0,.2);
+    border: 1px solid var(--border-hi); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-family: var(--font-body);
+    font-size: 13px; resize: vertical; min-height: 60px;
+    outline: none; transition: var(--transition);
+  }
+  .check-notes textarea:focus { border-color: var(--accent); }
+  .check-notes textarea::placeholder { color: var(--muted); }
+
+  /* ── NAV BUTTONS ──────────────────────────────────────────── */
+  .section-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 28px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    gap: 12px; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 10px 22px; border-radius: var(--radius);
+    font-family: var(--font-body); font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: var(--transition); border: 1px solid transparent;
+    text-decoration: none;
+  }
+  .btn-ghost {
+    background: transparent; color: var(--muted);
+    border-color: var(--border);
+  }
+  .btn-ghost:hover { background: var(--card); color: var(--text); border-color: var(--border-hi); }
+  .btn-primary {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+  }
+  .btn-primary:hover { background: #2563eb; filter: brightness(1.1); }
+  .btn-success {
+    background: var(--pass); color: #fff; border-color: var(--pass);
+  }
+  .btn-success:hover { background: #16a34a; }
+  .btn-danger {
+    background: var(--fail); color: #fff; border-color: var(--fail);
+  }
+  .btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ── STATUS SUMMARY PILL ──────────────────────────────────── */
+  .section-stats {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .stat-pill {
+    font-family: var(--font-mono); font-size: 11px;
+    padding: 3px 10px; border-radius: 20px;
+    border: 1px solid;
+  }
+  .stat-pill.pass { color: var(--pass); border-color: var(--pass); background: var(--pass-lo); }
+  .stat-pill.fail { color: var(--fail); border-color: var(--fail); background: var(--fail-lo); }
+  .stat-pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-lo); }
+  .stat-pill.pending { color: var(--muted); border-color: var(--border-hi); }
+
+  /* ── REPORT SUMMARY PAGE ──────────────────────────────────── */
+  #report-section { display: none; animation: fadeIn .3s ease; }
+  #report-section.active { display: block; }
+
+  .report-hero {
+    background: linear-gradient(135deg, var(--card) 0%, rgba(59,130,246,.08) 100%);
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 32px; margin-bottom: 24px; text-align: center;
+  }
+  .report-score-ring {
+    width: 100px; height: 100px; border-radius: 50%;
+    border: 4px solid var(--pass);
+    display: inline-grid; place-items: center;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .report-score { font-family: var(--font-display); font-size: 32px; font-weight: 800; color: var(--pass); }
+  .report-title { font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+  .report-meta { font-size: 13px; color: var(--muted); }
+
+  .report-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+  .report-stat {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; text-align: center;
+  }
+  .report-stat .val { font-family: var(--font-display); font-size: 28px; font-weight: 700; }
+  .report-stat .lbl { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .report-stat.pass .val { color: var(--pass); }
+  .report-stat.fail .val { color: var(--fail); }
+  .report-stat.warn .val { color: var(--warn); }
+
+  .report-section-block {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 12px; overflow: hidden;
+  }
+  .report-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; cursor: pointer;
+    transition: var(--transition); border-bottom: 1px solid transparent;
+  }
+  .report-section-head:hover { background: var(--surface); }
+  .report-section-head.open { border-bottom-color: var(--border); }
+  .report-section-title { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+  .report-section-badges { display: flex; gap: 6px; align-items: center; }
+  .report-section-body { padding: 12px 18px; display: none; }
+  .report-section-body.open { display: block; }
+
+  .report-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .report-item:last-child { border: none; }
+  .report-item-status {
+    width: 6px; flex-shrink: 0; align-self: stretch;
+    border-radius: 3px; margin-top: 2px;
+  }
+  .report-item-status.pass { background: var(--pass); }
+  .report-item-status.fail { background: var(--fail); }
+  .report-item-status.warn { background: var(--warn); }
+  .report-item-status.na   { background: var(--na); }
+  .report-item-status.pending { background: var(--border-hi); }
+  .report-item-label { flex: 1; font-size: 13.5px; }
+  .report-item-note { font-size: 12px; color: var(--muted); margin-top: 3px; font-style: italic; }
+  .report-item-tag {
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+  }
+  .report-item-tag.pass { background: var(--pass-lo); color: var(--pass); }
+  .report-item-tag.fail { background: var(--fail-lo); color: var(--fail); }
+  .report-item-tag.warn { background: var(--warn-lo); color: var(--warn); }
+  .report-item-tag.na   { background: var(--na-lo);   color: var(--na); }
+  .report-item-tag.pending { background: rgba(255,255,255,.05); color: var(--muted); }
+
+  .report-actions {
+    display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;
+  }
+
+  /* ── TOAST ────────────────────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 18px;
+    font-size: 13.5px; box-shadow: var(--shadow);
+    transform: translateY(80px); opacity: 0;
+    transition: .3s cubic-bezier(.4,0,.2,1);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pass); }
+
+  /* ── RESPONSIVE ───────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .content { padding: 20px 16px 80px; max-width: 100%; }
+    .inspection-header { grid-template-columns: 1fr; }
+    .report-grid { grid-template-columns: 1fr 1fr; }
+    .topnav { padding: 0 16px; }
+    .section-nav { flex-direction: column; align-items: stretch; }
+    .section-nav .btn { justify-content: center; }
+    .status-btns { padding-left: 0; }
+  }
+  @media (max-width: 480px) {
+    .report-grid { grid-template-columns: 1fr; }
+    .check-top { flex-wrap: wrap; }
+  }
+
+  /* Mobile nav */
+  .mobile-nav-bar {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: var(--surface); border-top: 1px solid var(--border);
+    padding: 8px 12px;
+  }
+  .mobile-nav-inner { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .mobile-nav-inner::-webkit-scrollbar { display: none; }
+  .mobile-tab {
+    flex-shrink: 0; font-size: 11px; font-weight: 500;
+    padding: 6px 12px; border-radius: 20px; cursor: pointer;
+    border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+    background: transparent; transition: var(--transition); font-family: var(--font-body);
+  }
+  .mobile-tab.active { background: var(--accent-lo); color: var(--accent); border-color: var(--accent); }
+  .mobile-tab.done { color: var(--pass); border-color: var(--pass); }
+  @media (max-width: 768px) { .mobile-nav-bar { display: block; } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- TOP NAV -->
+  <nav class="topnav">
+    <a class="brand" href="#">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+      </div>
+      <span class="brand-name">Inspect<span>Pro</span></span>
+    </a>
+    <div class="nav-actions">
+      <span class="badge-count" id="global-counter">0 / 0 items</span>
+      <button class="btn btn-ghost" style="padding:7px 14px;font-size:13px;" onclick="resetInspection()">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        Reset
+      </button>
+    </div>
+  </nav>
+  <div class="progress-strip"><div class="progress-fill" id="progress-fill"></div></div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-title">Inspection Sections</div>
+      <div id="sidebar-nav"></div>
+      <div class="sidebar-divider"></div>
+      <div style="padding:0 8px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Legend</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--pass)"><div style="width:8px;height:8px;border-radius:50%;background:var(--pass)"></div>Pass / OK</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fail)"><div style="width:8px;height:8px;border-radius:50%;background:var(--fail)"></div>Fail / Issue</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--warn)"><div style="width:8px;height:8px;border-radius:50%;background:var(--warn)"></div>Advisory / Monitor</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--na)"><div style="width:8px;height:8px;border-radius:50%;background:var(--na)"></div>N/A</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- INTAKE FORM -->
+      <section id="section-intake" class="section active">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--accent-lo);font-size:22px;">📋</div>
+          <div>
+            <div class="section-title">Inspection Details</div>
+            <div class="section-desc">Fill in the basic information before starting the inspection</div>
+          </div>
+        </div>
+        <div class="inspection-header">
+          <div class="full-width">
+            <label class="field-label">Property / Asset Name *</label>
+            <input class="field-input" id="prop-name" type="text" placeholder="e.g. 123 Main Street or Unit 4B">
+          </div>
+          <div>
+            <label class="field-label">Inspector Name *</label>
+            <input class="field-input" id="inspector-name" type="text" placeholder="Full name">
+          </div>
+          <div>
+            <label class="field-label">Inspection Date *</label>
+            <input class="field-input" id="inspection-date" type="date">
+          </div>
+          <div>
+            <label class="field-label">Inspection Type</label>
+            <input class="field-input" id="inspection-type" type="text" placeholder="e.g. Annual, Pre-sale, Move-in">
+          </div>
+          <div>
+            <label class="field-label">Reference / Order #</label>
+            <input class="field-input" id="ref-number" type="text" placeholder="Optional reference number">
+          </div>
+          <div class="full-width">
+            <label class="field-label">Additional Notes</label>
+            <textarea class="field-input" id="intake-notes" rows="3" placeholder="Any relevant context for this inspection..." style="resize:vertical;"></textarea>
+          </div>
+        </div>
+        <div class="section-nav">
+          <div></div>
+          <button class="btn btn-primary" onclick="startInspection()">
+            Begin Inspection
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- DYNAMIC SECTIONS INJECTED HERE -->
+      <div id="sections-container"></div>
+
+      <!-- REPORT SECTION -->
+      <section id="report-section">
+        <div class="section-header">
+          <div class="section-icon" style="background:var(--pass-lo);font-size:22px;">📊</div>
+          <div>
+            <div class="section-title">Inspection Report</div>
+            <div class="section-desc">Review your findings and download the final report</div>
+          </div>
+        </div>
+        <div id="report-content"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <div class="mobile-nav-bar">
+    <div class="mobile-nav-inner" id="mobile-nav"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="dot"></div>
+  <span id="toast-msg">Saved</span>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// DATA MODEL — CUSTOMISE THESE SECTIONS FOR YOUR USE CASE
+// ══════════════════════════════════════════════════════════════
+const SECTIONS = [
+  {
+    id: "exterior",
+    label: "Exterior",
+    icon: "🏗️",
+    color: "#3b82f6",
+    desc: "Assess the outer structure, grounds, and access points",
+    items: [
+      { id: "ext-01", label: "Foundation — visible cracks, settling or water damage", required: true },
+      { id: "ext-02", label: "Exterior walls — cladding, paint or siding condition" },
+      { id: "ext-03", label: "Roof surface — shingles, tiles, or membrane integrity", required: true },
+      { id: "ext-04", label: "Gutters & downspouts — attached, clear of debris" },
+      { id: "ext-05", label: "Windows & doors — seals, hardware, and frame condition" },
+      { id: "ext-06", label: "Driveway, walkways, and steps — safety and condition" },
+      { id: "ext-07", label: "Fencing and gates — structural integrity" },
+      { id: "ext-08", label: "Grading & drainage — water flows away from structure" },
+    ]
+  },
+  {
+    id: "interior",
+    label: "Interior",
+    icon: "🏠",
+    color: "#8b5cf6",
+    desc: "Evaluate internal rooms, surfaces, and built-in elements",
+    items: [
+      { id: "int-01", label: "Ceilings — stains, cracks, or sag present", required: true },
+      { id: "int-02", label: "Walls — surface damage, moisture marks, or mold" },
+      { id: "int-03", label: "Floors — condition, squeaks, lifting, or damage" },
+      { id: "int-04", label: "Stairs & railings — secure, proper rise/run" },
+      { id: "int-05", label: "Doors — operation, latches, and weatherstripping" },
+      { id: "int-06", label: "Windows — operation, locks, glazing condition" },
+      { id: "int-07", label: "Insulation visibility (attic/crawlspace if accessible)" },
+    ]
+  },
+  {
+    id: "electrical",
+    label: "Electrical",
+    icon: "⚡",
+    color: "#f59e0b",
+    desc: "Check panel, wiring, outlets, and safety compliance",
+    items: [
+      { id: "elec-01", label: "Electrical panel — labeling, capacity, no double-tapping", required: true },
+      { id: "elec-02", label: "Circuit breakers — functional, no signs of overheating" },
+      { id: "elec-03", label: "GFCI outlets present at all required locations", required: true },
+      { id: "elec-04", label: "Visible wiring — no exposed, frayed, or improper splices" },
+      { id: "elec-05", label: "Light switches and outlets — all plates present, functional" },
+      { id: "elec-06", label: "Smoke & CO detectors — present, tested, within service life", required: true },
+      { id: "elec-07", label: "Exterior lighting — operational and secure" },
+    ]
+  },
+  {
+    id: "plumbing",
+    label: "Plumbing",
+    icon: "🔧",
+    color: "#06b6d4",
+    desc: "Inspect water supply, drainage, and fixtures",
+    items: [
+      { id: "plmb-01", label: "Water supply — adequate pressure at fixtures", required: true },
+      { id: "plmb-02", label: "Hot water heater — age, condition, relief valve" },
+      { id: "plmb-03", label: "Drains — flow rate, no slow drainage or backflow" },
+      { id: "plmb-04", label: "Toilets — secure base, flushing, no running" },
+      { id: "plmb-05", label: "Sinks and faucets — no leaks under cabinet" },
+      { id: "plmb-06", label: "Shower and tub — caulking, tiles, drainage" },
+      { id: "plmb-07", label: "Visible pipes — no corrosion, leaks, or improper supports" },
+    ]
+  },
+  {
+    id: "hvac",
+    label: "HVAC",
+    icon: "🌡️",
+    color: "#22c55e",
+    desc: "Heating, ventilation, and air conditioning systems",
+    items: [
+      { id: "hvac-01", label: "Furnace / heat pump — operation and last service date", required: true },
+      { id: "hvac-02", label: "Air conditioning — cools adequately, no unusual noise" },
+      { id: "hvac-03", label: "Filters — clean, within replacement interval" },
+      { id: "hvac-04", label: "Ductwork — visible sections intact, no major leakage" },
+      { id: "hvac-05", label: "Thermostats — functional and correctly calibrated" },
+      { id: "hvac-06", label: "Exhaust fans — bathroom, kitchen operational" },
+      { id: "hvac-07", label: "Fireplace / wood stove — damper, surround, flue condition" },
+    ]
+  },
+  {
+    id: "safety",
+    label: "Safety & Compliance",
+    icon: "🛡️",
+    color: "#ef4444",
+    desc: "Life-safety systems and regulatory compliance items",
+    items: [
+      { id: "safe-01", label: "Fire extinguishers — present, charged, accessible", required: true },
+      { id: "safe-02", label: "Emergency egress — all exits clear and functional" },
+      { id: "safe-03", label: "Handrails and guardrails — code-compliant height" },
+      { id: "safe-04", label: "Pool / hot tub fencing and safety covers (if applicable)" },
+      { id: "safe-05", label: "Garage door auto-reverse safety mechanism", },
+      { id: "safe-06", label: "Asbestos / lead paint risk (age/condition-based assessment)", required: true },
+      { id: "safe-07", label: "Pest or moisture intrusion evidence visible" },
+    ]
+  },
+];
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let state = {}; // { [itemId]: { status: 'pass'|'fail'|'warn'|'na'|null, note: '' } }
+let currentSection = null; // 'intake' | section.id | 'report'
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  // Init state
+  SECTIONS.forEach(s => s.items.forEach(it => {
+    state[it.id] = { status: null, note: '' };
+  }));
+
+  // Set today's date
+  document.getElementById('inspection-date').valueAsDate = new Date();
+
+  buildSections();
+  buildNav();
+  updateProgress();
+  currentSection = 'intake';
+});
+
+// ══════════════════════════════════════════════════════════════
+// BUILD DOM
+// ══════════════════════════════════════════════════════════════
+function buildSections() {
+  const container = document.getElementById('sections-container');
+  container.innerHTML = '';
+
+  SECTIONS.forEach((sec, si) => {
+    const div = document.createElement('section');
+    div.id = `section-${sec.id}`;
+    div.className = 'section';
+
+    div.innerHTML = `
+      <div class="section-header">
+        <div class="section-icon" style="background:${sec.color}22;">${sec.icon}</div>
+        <div>
+          <div class="section-title">${sec.label}</div>
+          <div class="section-desc">${sec.desc}</div>
+        </div>
+      </div>
+      <div class="section-stats" id="stats-${sec.id}"></div>
+      <div class="checklist" id="list-${sec.id}">
+        ${sec.items.map((it, idx) => buildItemHTML(it, idx + 1)).join('')}
+      </div>
+      <div class="section-nav">
+        <button class="btn btn-ghost" onclick="goToSection('${si === 0 ? 'intake' : SECTIONS[si-1].id}')">
+          <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          ${si === 0 ? 'Back to Details' : SECTIONS[si-1].label}
+        </button>
+        ${si < SECTIONS.length - 1
+          ? `<button class="btn btn-primary" onclick="goToSection('${SECTIONS[si+1].id}')">
+              ${SECTIONS[si+1].label}
+              <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+             </button>`
+          : `<button class="btn btn-success" onclick="submitInspection()">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              Generate Report
+             </button>`
+        }
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function buildItemHTML(item, num) {
+  return `
+    <div class="check-item" id="ci-${item.id}">
+      <div class="check-top">
+        <span class="check-number">${String(num).padStart(2,'0')}</span>
+        <span class="check-label">${item.label}</span>
+        ${item.required ? '<span class="check-required">Required</span>' : ''}
+      </div>
+      <div class="status-btns">
+        <button class="status-btn pass" onclick="setStatus('${item.id}','pass',this)"><div class="dot"></div>Pass</button>
+        <button class="status-btn fail" onclick="setStatus('${item.id}','fail',this)"><div class="dot"></div>Fail</button>
+        <button class="status-btn warn" onclick="setStatus('${item.id}','warn',this)"><div class="dot"></div>Advisory</button>
+        <button class="status-btn na"   onclick="setStatus('${item.id}','na',this)"><div class="dot"></div>N/A</button>
+      </div>
+      <div class="check-notes">
+        <textarea placeholder="Add notes or describe the issue…" oninput="setNote('${item.id}',this.value)"></textarea>
+      </div>
+    </div>`;
+}
+
+function buildNav() {
+  const sidebarNav = document.getElementById('sidebar-nav');
+  const mobileNav = document.getElementById('mobile-nav');
+  sidebarNav.innerHTML = '';
+  mobileNav.innerHTML = '';
+
+  SECTIONS.forEach(sec => {
+    const total = sec.items.length;
+    const done = sec.items.filter(it => state[it.id].status).length;
+
+    // Sidebar
+    const el = document.createElement('div');
+    el.className = 'nav-item';
+    el.id = `nav-${sec.id}`;
+    el.onclick = () => goToSection(sec.id);
+    el.innerHTML = `
+      <div class="nav-dot"></div>
+      <span>${sec.icon} ${sec.label}</span>
+      <span class="nav-progress">${done}/${total}</span>`;
+    sidebarNav.appendChild(el);
+
+    // Mobile
+    const mb = document.createElement('button');
+    mb.className = 'mobile-tab';
+    mb.id = `mob-${sec.id}`;
+    mb.textContent = `${sec.icon} ${sec.label}`;
+    mb.onclick = () => goToSection(sec.id);
+    mobileNav.appendChild(mb);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function startInspection() {
+  const name = document.getElementById('prop-name').value.trim();
+  const inspector = document.getElementById('inspector-name').value.trim();
+  if (!name || !inspector) {
+    showToast('Please fill in Property Name and Inspector Name', '⚠️');
+    return;
+  }
+  goToSection(SECTIONS[0].id);
+}
+
+function goToSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#report-section').forEach(s => {
+    s.classList.remove('active'); s.style.display = 'none';
+  });
+
+  const target = document.getElementById(`section-${id}`);
+  if (target) {
+    target.classList.add('active');
+    updateSectionStats(id);
+  }
+
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-tab').forEach(n => n.classList.remove('active'));
+  const navEl = document.getElementById(`nav-${id}`);
+  const mobEl = document.getElementById(`mob-${id}`);
+  if (navEl) navEl.classList.add('active');
+  if (mobEl) mobEl.classList.add('active');
+
+  currentSection = id;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════════════════════════════
+// STATUS LOGIC
+// ══════════════════════════════════════════════════════════════
+function setStatus(itemId, status, btn) {
+  const current = state[itemId].status;
+  // Toggle off if clicking same
+  const newStatus = (current === status) ? null : status;
+  state[itemId].status = newStatus;
+
+  const card = document.getElementById(`ci-${itemId}`);
+  card.className = 'check-item' + (newStatus ? ` status-${newStatus}` : '');
+
+  // Update buttons
+  card.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+  if (newStatus) btn.classList.add('active');
+
+  // Auto-show/hide notes for fail/warn
+  updateProgress();
+  updateNavDots();
+
+  // Update current section stats
+  const sec = SECTIONS.find(s => s.items.some(it => it.id === itemId));
+  if (sec) updateSectionStats(sec.id);
+}
+
+function setNote(itemId, val) {
+  state[itemId].note = val;
+}
+
+// ══════════════════════════════════════════════════════════════
+// PROGRESS & STATS
+// ══════════════════════════════════════════════════════════════
+function updateProgress() {
+  const allItems = SECTIONS.flatMap(s => s.items);
+  const total = allItems.length;
+  const done = allItems.filter(it => state[it.id].status !== null).length;
+  document.getElementById('progress-fill').style.width = `${(done/total)*100}%`;
+  document.getElementById('global-counter').textContent = `${done} / ${total} items`;
+}
+
+function updateNavDots() {
+  SECTIONS.forEach(sec => {
+    const total = sec.items.length;
+    const done = sec.items.filter(it => state[it.id].status).length;
+    const allPass = sec.items.every(it => state[it.id].status === 'pass' || state[it.id].status === 'na');
+
+    const navEl = document.getElementById(`nav-${sec.id}`);
+    const mobEl = document.getElementById(`mob-${sec.id}`);
+    if (navEl) {
+      navEl.querySelector('.nav-progress').textContent = `${done}/${total}`;
+      if (done === total) navEl.classList.add('done'); else navEl.classList.remove('done');
+    }
+    if (mobEl) {
+      if (done === total) mobEl.classList.add('done'); else mobEl.classList.remove('done');
+    }
+  });
+}
+
+function updateSectionStats(id) {
+  const sec = SECTIONS.find(s => s.id === id);
+  if (!sec) return;
+  const el = document.getElementById(`stats-${id}`);
+  if (!el) return;
+
+  const counts = { pass: 0, fail: 0, warn: 0, na: 0, pending: 0 };
+  sec.items.forEach(it => {
+    const s = state[it.id].status || 'pending';
+    counts[s]++;
+  });
+
+  el.innerHTML = `
+    ${counts.pass  ? `<span class="stat-pill pass">✓ ${counts.pass} Pass</span>` : ''}
+    ${counts.fail  ? `<span class="stat-pill fail">✗ ${counts.fail} Fail</span>` : ''}
+    ${counts.warn  ? `<span class="stat-pill warn">⚠ ${counts.warn} Advisory</span>` : ''}
+    ${counts.na    ? `<span class="stat-pill" style="color:var(--na);border-color:var(--na)">— ${counts.na} N/A</span>` : ''}
+    ${counts.pending ? `<span class="stat-pill pending">◌ ${counts.pending} Pending</span>` : ''}
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// REPORT GENERATION
+// ══════════════════════════════════════════════════════════════
+function submitInspection() {
+  // Check required items
+  const required = SECTIONS.flatMap(s => s.items.filter(it => it.required));
+  const missing = required.filter(it => !state[it.id].status);
+  if (missing.length > 0) {
+    showToast(`${missing.length} required item(s) still need a status`, '⚠️');
+    return;
+  }
+
+  buildReport();
+
+  // Show report
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const rpt = document.getElementById('report-section');
+  rpt.style.display = 'block';
+  setTimeout(() => rpt.classList.add('active'), 10);
+
+  // Update nav
+  document.querySelectorAll('.nav-item, .mobile-tab').forEach(n => {
+    n.classList.remove('active');
+  });
+
+  currentSection = 'report';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showToast('Report generated successfully');
+}
+
+function buildReport() {
+  const propName = document.getElementById('prop-name').value || 'Unnamed Property';
+  const inspector = document.getElementById('inspector-name').value || '—';
+  const date = document.getElementById('inspection-date').value || new Date().toISOString().split('T')[0];
+  const type = document.getElementById('inspection-type').value || 'General Inspection';
+  const ref = document.getElementById('ref-number').value || '—';
+  const intakeNotes = document.getElementById('intake-notes').value || '';
+
+  const allItems = SECTIONS.flatMap(s => s.items);
+  const total = allItems.length;
+  const counts = { pass: 0, fail: 0, warn: 0, na: 0, pending: 0 };
+  allItems.forEach(it => { counts[state[it.id].status || 'pending']++; });
+
+  const score = total > 0 ? Math.round(((counts.pass + counts.na) / total) * 100) : 0;
+  let scoreColor = score >= 80 ? 'var(--pass)' : score >= 60 ? 'var(--warn)' : 'var(--fail)';
+  let verdict = score >= 80 ? '✅ Good Condition' : score >= 60 ? '⚠️ Needs Attention' : '❌ Significant Issues';
+
+  const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  const sectionsHTML = SECTIONS.map(sec => {
+    const items = sec.items;
+    const secCounts = { pass: 0, fail: 0, warn: 0, na: 0, pending: 0 };
+    items.forEach(it => { secCounts[state[it.id].status || 'pending']++; });
+
+    const itemsHTML = items.map(it => {
+      const s = state[it.id].status || 'pending';
+      const note = state[it.id].note;
+      const labelMap = { pass:'Pass', fail:'Fail', warn:'Advisory', na:'N/A', pending:'Pending' };
+      return `
+        <div class="report-item">
+          <div class="report-item-status ${s}"></div>
+          <div class="report-item-label">
+            ${it.label}
+            ${note ? `<div class="report-item-note">${note}</div>` : ''}
+          </div>
+          <span class="report-item-tag ${s}">${labelMap[s]}</span>
+        </div>`;
+    }).join('');
+
+    const badges = `
+      ${secCounts.fail   ? `<span class="stat-pill fail">${secCounts.fail} Fail</span>` : ''}
+      ${secCounts.warn   ? `<span class="stat-pill warn">${secCounts.warn} Advisory</span>` : ''}
+      ${secCounts.pending ? `<span class="stat-pill pending">${secCounts.pending} Pending</span>` : ''}
+      ${!secCounts.fail && !secCounts.warn && !secCounts.pending ? '<span class="stat-pill pass">All Clear</span>' : ''}
+    `;
+
+    return `
+      <div class="report-section-block">
+        <div class="report-section-head" onclick="toggleSection(this)">
+          <div class="report-section-title">${sec.icon} ${sec.label}</div>
+          <div class="report-section-badges">${badges}</div>
+        </div>
+        <div class="report-section-body open">${itemsHTML}</div>
+      </div>`;
+  }).join('');
+
+  const infoRows = [
+    ['Property / Asset', propName],
+    ['Inspector', inspector],
+    ['Date', formattedDate],
+    ['Type', type],
+    ['Reference #', ref],
+    ...(intakeNotes ? [['Notes', intakeNotes]] : []),
+  ].map(([k,v]) => `<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;">
+    <span style="color:var(--muted);width:130px;flex-shrink:0;font-family:var(--font-mono);font-size:11px;padding-top:2px;text-transform:uppercase;letter-spacing:.8px;">${k}</span>
+    <span>${v}</span>
+  </div>`).join('');
+
+  document.getElementById('report-content').innerHTML = `
+    <div class="report-hero">
+      <div class="report-score-ring" style="border-color:${scoreColor};">
+        <span class="report-score" style="color:${scoreColor};">${score}%</span>
+      </div>
+      <div class="report-title">${propName}</div>
+      <div class="report-meta">${verdict} &nbsp;•&nbsp; ${formattedDate} &nbsp;•&nbsp; Inspector: ${inspector}</div>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-stat pass"><div class="val">${counts.pass}</div><div class="lbl">Pass</div></div>
+      <div class="report-stat fail"><div class="val">${counts.fail}</div><div class="lbl">Fail / Issue</div></div>
+      <div class="report-stat warn"><div class="val">${counts.warn}</div><div class="lbl">Advisory</div></div>
+    </div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;">
+      <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:12px;">Inspection Info</div>
+      ${infoRows}
+    </div>
+
+    <div style="font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:12px;">Findings by Section</div>
+    ${sectionsHTML}
+
+    <div class="report-actions">
+      <button class="btn btn-primary" onclick="downloadPDF()">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </button>
+      <button class="btn btn-ghost" onclick="printReport()">
+        <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+      <button class="btn btn-ghost" onclick="goToSection('${SECTIONS[SECTIONS.length-1].id}')">
+        <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to Inspection
+      </button>
+    </div>
+  `;
+}
+
+function toggleSection(el) {
+  el.classList.toggle('open');
+  const body = el.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════════════════
+// PDF EXPORT
+// ══════════════════════════════════════════════════════════════
+function downloadPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210, M = 18, CW = W - M * 2;
+
+  const propName = document.getElementById('prop-name').value || 'Unnamed Property';
+  const inspector = document.getElementById('inspector-name').value || '—';
+  const date = document.getElementById('inspection-date').value || new Date().toISOString().split('T')[0];
+  const type = document.getElementById('inspection-type').value || 'General Inspection';
+  const ref = document.getElementById('ref-number').value || '—';
+  const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  const allItems = SECTIONS.flatMap(s => s.items);
+  const counts = { pass: 0, fail: 0, warn: 0, na: 0, pending: 0 };
+  allItems.forEach(it => { counts[state[it.id].status || 'pending']++; });
+  const score = allItems.length ? Math.round(((counts.pass + counts.na) / allItems.length) * 100) : 0;
+  const verdict = score >= 80 ? 'Good Condition' : score >= 60 ? 'Needs Attention' : 'Significant Issues';
+
+  let y = 0;
+
+  const checkPage = (needed = 10) => {
+    if (y + needed > 280) { doc.addPage(); y = 20; }
+  };
+
+  // Header bar
+  doc.setFillColor(13, 15, 18);
+  doc.rect(0, 0, 210, 24, 'F');
+  doc.setFontSize(16); doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+  doc.text('InspectPro', M, 15);
+  doc.setFontSize(9); doc.setTextColor(138,145,158); doc.setFont('helvetica','normal');
+  doc.text('Field Inspection Report', M + 42, 15);
+  doc.setFontSize(9); doc.setTextColor(200,200,200);
+  doc.text(formattedDate, W - M, 15, { align: 'right' });
+
+  y = 36;
+
+  // Title
+  doc.setFontSize(20); doc.setTextColor(30,30,30); doc.setFont('helvetica','bold');
+  doc.text(propName, M, y); y += 8;
+  doc.setFontSize(10); doc.setTextColor(100,100,100); doc.setFont('helvetica','normal');
+  doc.text(`${type}  •  Inspector: ${inspector}  •  Ref: ${ref}`, M, y); y += 12;
+
+  // Score box
+  doc.setFillColor(240, 255, 245);
+  doc.roundedRect(M, y, CW, 24, 3, 3, 'F');
+  doc.setFontSize(28); doc.setTextColor(22, 163, 74); doc.setFont('helvetica','bold');
+  doc.text(`${score}%`, M + 8, y + 17);
+  doc.setFontSize(12); doc.setTextColor(30,30,30);
+  doc.text(verdict, M + 28, y + 17);
+
+  // Mini stats
+  const statX = [120, 148, 176];
+  const statLabels = [`${counts.pass} Pass`, `${counts.fail} Fail`, `${counts.warn} Advisory`];
+  const statColors = [[22,163,74], [239,68,68], [217,119,6]];
+  statLabels.forEach((lbl, i) => {
+    doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.setTextColor(...statColors[i]); doc.text(lbl, statX[i], y + 11);
+  });
+  y += 34;
+
+  // Sections
+  SECTIONS.forEach(sec => {
+    checkPage(16);
+    // Section heading
+    doc.setFillColor(245,246,248);
+    doc.rect(M, y, CW, 9, 'F');
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+    doc.text(`${sec.label}`, M + 4, y + 6); y += 12;
+
+    sec.items.forEach(it => {
+      checkPage(8);
+      const s = state[it.id].status || 'pending';
+      const note = state[it.id].note;
+      const statusMap = { pass:'PASS', fail:'FAIL', warn:'ADVISORY', na:'N/A', pending:'PENDING' };
+      const colMap = { pass:[22,163,74], fail:[239,68,68], warn:[217,119,6], na:[100,116,139], pending:[180,180,180] };
+
+      // Status badge
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...colMap[s]);
+      doc.text(statusMap[s], M, y + 4);
+
+      // Item label
+      const labelLines = doc.splitTextToSize(it.label, CW - 30);
+      doc.setFont('helvetica','normal'); doc.setTextColor(40,40,40); doc.setFontSize(9);
+      doc.text(labelLines, M + 22, y + 4);
+
+      y += labelLines.length * 5.5;
+
+      if (note) {
+        checkPage(6);
+        doc.setFontSize(8); doc.setTextColor(120,120,120); doc.setFont('helvetica','italic');
+        const noteLines = doc.splitTextToSize(`Note: ${note}`, CW - 24);
+        doc.text(noteLines, M + 22, y);
+        y += noteLines.length * 4.5;
+      }
+
+      // Divider
+      doc.setDrawColor(230,230,230); doc.line(M + 20, y + 1, M + CW, y + 1); y += 4;
+    });
+    y += 6;
+  });
+
+  // Footer on all pages
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(160,160,160); doc.setFont('helvetica','normal');
+    doc.text(`InspectPro  |  Generated ${new Date().toLocaleDateString()}`, M, 291);
+    doc.text(`Page ${i} of ${pageCount}`, W - M, 291, { align:'right' });
+  }
+
+  const filename = `inspection-${propName.replace(/\s+/g,'-').toLowerCase()}-${date}.pdf`;
+  doc.save(filename);
+  showToast('PDF downloaded!');
+}
+
+function printReport() {
+  window.print();
+}
+
+// ══════════════════════════════════════════════════════════════
+// RESET
+// ══════════════════════════════════════════════════════════════
+function resetInspection() {
+  if (!confirm('Reset the entire inspection? All data will be cleared.')) return;
+  SECTIONS.forEach(s => s.items.forEach(it => {
+    state[it.id] = { status: null, note: '' };
+    const card = document.getElementById(`ci-${it.id}`);
+    if (card) {
+      card.className = 'check-item';
+      card.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+      const ta = card.querySelector('textarea');
+      if (ta) ta.value = '';
+    }
+  }));
+  document.getElementById('inspection-date').valueAsDate = new Date();
+  document.getElementById('section-intake').classList.add('active');
+  const rpt = document.getElementById('report-section');
+  rpt.style.display = 'none'; rpt.classList.remove('active');
+  document.querySelectorAll('.section:not(#section-intake)').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item, .mobile-tab').forEach(n => n.classList.remove('active','done'));
+  updateProgress();
+  updateNavDots();
+  showToast('Inspection reset');
+  currentSection = 'intake';
+}
+
+// ══════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, emoji = '✓') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = `${emoji} ${msg}`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
