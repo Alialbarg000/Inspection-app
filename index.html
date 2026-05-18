@@ -19,6 +19,13 @@
   ═══════════════════════════════════════════════════════════ -->
   <header class="topbar">
 
+    <!-- Search bar -->
+    <div class="search-wrap">
+      <input id="global-search-input" class="global-search" type="search"
+        placeholder="🔍 Search checklist items..." autocomplete="off" spellcheck="false">
+      <div id="global-search-results" class="search-results" style="display:none"></div>
+    </div>
+
     <!-- Back button (shown by JS when not on splash) -->
     <button id="back-btn" title="Go back one level (Esc)">
       <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -188,6 +195,15 @@
     </div><!-- /.splash-inner -->
   </div><!-- /#splash -->
 
+  <!-- HUB PANEL — category grid shown after "Begin Survey" -->
+  <div id="hub-panel" style="display:none;">
+    <div class="hub-header">
+      <div class="hub-title">⚓ Survey Hub — Select a System to Inspect</div>
+      <div class="hub-subtitle">Click any category card to open its checklist. Your progress is tracked live.</div>
+    </div>
+    <div class="hub-grid" id="hub-grid"></div>
+  </div>
+
   <!-- ═══════════════════════════════════════════════════════════
        WORK AREA — context bar + accordion
   ═══════════════════════════════════════════════════════════ -->
@@ -273,11 +289,21 @@
       <textarea id="tray-note"
         placeholder="Describe the finding — location, severity, recommended action…&#10;&#10;Press Enter to save &amp; close."
       ></textarea>
+
+      <!-- Chip suggestion -->
+      <div id="tray-chip-suggestion" class="tray-chip-suggestion"></div>
+
+      <!-- Rephrase button -->
+      <button id="rephrase-btn" class="rephrase-btn">✨ Rephrase Note (Professional)</button>
+
       <!-- Save to Quick Insert -->
       <button id="qi-save-btn">
         💾 Add to Quick Insert Options
       </button>
     </div>
+
+    <!-- Cost estimate field (rendered by JS) -->
+    <div id="tray-cost-field"></div>
 
     <!-- Quick Insert library -->
     <div class="qi-section">
