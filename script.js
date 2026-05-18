@@ -565,6 +565,7 @@ function updateBackBtn() {
 
 function showView(view) {
   document.getElementById('splash').style.display       = view === 'splash'   ? 'flex'  : 'none';
+  const hub = document.getElementById('hub-panel'); if(hub) hub.style.display = view === 'hub' ? 'block' : 'none';
   document.getElementById('work-area').style.display    = view === 'category' ? 'flex'  : 'none';
   document.getElementById('report-panel').style.display = view === 'report'   ? 'block' : 'none';
   updateBackBtn();
@@ -584,7 +585,7 @@ function initState() {
   DB.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(it => {
     State.items[it.id] = {
       status: null,
-      finding: { active: false, note: '', priority: null, photo: null }
+      finding: { active: false, note: '', priority: null, photo: null, cost: '' }
     };
   })));
 }
@@ -729,7 +730,8 @@ function buildItemRow(item, num) {
 
   row.innerHTML = `
     <span class="item-num">${String(num).padStart(2,'0')}</span>
-    <span class="item-label">${item.label}</span>
+    <span class="item-label" id="il-${item.id}">${item.label}</span>
+      <button class="edit-label-btn" title="Rename item" onclick="enableInlineEdit(`${item.id}`,document.getElementById(`il-${item.id}`))">✏️</button>
     <div class="item-controls">
       ${hasPhoto ? `<span class="photo-indicator" title="Photo attached">📷</span>` : ''}
       <button class="pill-btn ${STATUS_CLASS[s.status]}" data-id="${item.id}">
@@ -797,6 +799,8 @@ function openNoteTray(itemId) {
 
   renderTrayPhoto(s.finding.photo);
   renderQuickInsertList();
+  renderChipSuggestion(State.items[itemId].status || 'progress');
+  renderCostField(itemId);
 
   $('note-tray').classList.add('open');
   $('tray-overlay').classList.add('visible');
@@ -836,8 +840,11 @@ function renderTrayPhoto(data) {
   const c = $('tray-photo-preview');
   if (!data) { c.innerHTML=''; c.style.display='none'; return; }
   c.style.display='block';
-  c.innerHTML = `<div class="tray-photo-wrap">
-    <img src="${data}" class="tray-photo-img" alt="Inspection photo">
+  c.innerHTML = `<div class="tray-photo-wrap" style="position:relative">
+    <img src="${data}" class="tray-photo-img" alt="Inspection photo"
+         style="cursor:pointer" title="Click to mark up"
+         onclick="openMarkupCanvas('${data.replace(/'/g,\"\\\"\")}','${_currentTrayId}')">
+    <button class="tray-markup-btn" onclick="openMarkupCanvas(this.closest('.tray-photo-wrap').querySelector('img').src,'${_currentTrayId}')">✏️ Mark up</button>
     <button class="tray-photo-remove" onclick="removePhoto()">✕</button>
   </div>`;
 }
@@ -958,6 +965,10 @@ function selectCategory(catId) {
   showView('category');
   refreshAll();
   window.scrollTo(0, 0);
+  requestAnimationFrame(() => {
+    const a = document.querySelector('.cat-cap.active');
+    if (a) a.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+  });
 }
 
 function setFilter(mode) {
@@ -1002,7 +1013,9 @@ function refreshAll() {
   if (Nav.activeCategory && Nav.current() === 'category') {
     renderContextBar();
     renderAccordion();
+    appendAddItemButton(Nav.activeCategory);
   }
+  if (Nav.current() === 'hub') renderHub();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1152,6 +1165,7 @@ function buildReport() {
     ${detail}
 
     <!-- DISCLAIMER -->
+    ${buildCostPage()}
     <div class="rpt-disclaimer">${LEGAL_DISCLAIMER}</div>
     <div class="rpt-footer">${COMPANY_NAME} &nbsp;·&nbsp; ${I.surveyor} &nbsp;·&nbsp; ${fmtDate} &nbsp;·&nbsp; ${I.vessel}</div>`;
 }
@@ -1365,6 +1379,10 @@ function showToast(msg){const t=$('toast');$('toast-msg').textContent=msg;t.clas
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
   loadQuickInsert();
+  loadCustomSections();
+  loadTaxSettings();
+  customSections.forEach(injectCustomSectionIntoDB);
+  buildSearchIndex();
   initState();
   $('v-date').valueAsDate = new Date();
 
@@ -1379,7 +1397,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btn-start').addEventListener('click',()=>{
     const name=$('v-name').value.trim(), surv=$('v-surveyor').value.trim();
     if(!name||!surv){showToast('⚠️  Enter Vessel Name and Surveyor Name');return;}
-    selectCategory('vessel-id');
+    Nav.push('hub');
+    showView('hub');
+    renderHub();
+    renderProgress();
   });
 
   // Tray events
@@ -1390,6 +1411,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.tray-pri-btn').forEach(b=>b.addEventListener('click',()=>setTrayPriority(b.dataset.pri)));
   $('photo-add-btn').addEventListener('click',triggerPhotoUpload);
   $('photo-file-input').addEventListener('change',function(){handlePhotoInput(this);});
+  const rpBtn = document.getElementById('rephrase-btn');
+  if (rpBtn) rpBtn.addEventListener('click', handleRephrase);
   $('qi-save-btn').addEventListener('click',handleSaveToQuickInsert);
 
   // Vessel photo
@@ -1397,8 +1420,500 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Drag scroll on catbar
   enableDragScroll(document.querySelector('.catbar'));
+  initSearchBar();
 
   showView('splash');
   renderCategoryBar();
   renderProgress();
 });
+
+// ═══════════════════════════════════════════════════════════════
+// PATCH v5 — NEW FUNCTIONS (appended)
+// ═══════════════════════════════════════════════════════════════
+
+// ── REPHRASE DICTIONARY ────────────────────────────────────────
+const REPHRASE_MAP = [
+  [/\bbad\b/gi,               'deteriorated'],
+  [/\bcracked\b/gi,           'exhibits visible cracking'],
+  [/\bbroken\b/gi,            'found inoperable'],
+  [/\bleaking\b/gi,           'exhibits active fluid ingress'],
+  [/\bleak\b/gi,              'fluid seepage observed'],
+  [/\brusty\b/gi,             'exhibiting ferrous corrosion'],
+  [/\brust\b/gi,              'ferrous corrosion'],
+  [/\bcorroded\b/gi,          'exhibiting galvanic corrosion'],
+  [/\bworn\b/gi,              'shows significant wear'],
+  [/\bwear\b/gi,              'wear and degradation'],
+  [/\bmissing\b/gi,           'absent — immediate attention required'],
+  [/\bold\b/gi,               'aged beyond recommended service interval'],
+  [/\bdirty\b/gi,             'contaminated and requires servicing'],
+  [/\bclogged\b/gi,           'obstructed — flow restricted'],
+  [/\bloose\b/gi,             'exhibits inadequate fastening'],
+  [/\bsoft spot\b/gi,         'delamination suspected — moisture ingress likely'],
+  [/\bsoft\b/gi,              'lacks structural rigidity'],
+  [/\bwet\b/gi,               'elevated moisture readings noted'],
+  [/\bok\b/gi,                'within acceptable survey parameters'],
+  [/\bgood\b/gi,              'in satisfactory condition'],
+  [/\bfine\b/gi,              'functionally adequate'],
+  [/\bcheck\b/gi,             'requires further evaluation'],
+  [/\bnot working\b/gi,       'non-functional — recommend immediate attention'],
+  [/\bdoesn'?t work\b/gi,     'non-functional — recommend immediate attention'],
+  [/\bneeds work\b/gi,        'requires remediation'],
+  [/\bfix\b/gi,               'remediate'],
+  [/\breplace\b/gi,           'renew or replace at earliest opportunity'],
+  [/\bservice\b/gi,           'service at earliest opportunity'],
+  [/\bsee photo\b/gi,         'refer to photographic documentation'],
+  [/\bpic\b/gi,               'photographic documentation'],
+  [/\bbilge\b/gi,             'bilge compartment'],
+  [/\bhull\b/gi,              'hull structure'],
+  [/\bengine\b/gi,            'propulsion machinery'],
+  [/\btransom\b/gi,           'transom assembly'],
+  [/\bno seacock\b/gi,        'seacock absent — non-compliant below waterline fitting'],
+  [/\bno backing\b/gi,        'backing plate absent — structural risk under load'],
+  [/\bdelamination\b/gi,      'delamination of laminate confirmed — structural repair required'],
+  [/\bblisters\b/gi,          'osmotic blistering present — severity to be assessed'],
+];
+
+function rephraseNote(text) {
+  let out = text.trim();
+  if (!out) return out;
+  REPHRASE_MAP.forEach(([rx, rep]) => { out = out.replace(rx, rep); });
+  out = out.charAt(0).toUpperCase() + out.slice(1);
+  if (!/[.!?]$/.test(out)) out += '.';
+  return out;
+}
+
+function handleRephrase() {
+  const ta = $('tray-note');
+  if (!ta || !ta.value.trim()) { showToast('Type a note first'); return; }
+  const rephrased = rephraseNote(ta.value);
+  ta.value = rephrased;
+  if (_currentTrayId) State.items[_currentTrayId].finding.note = rephrased;
+  ta.focus();
+  showToast('Note rephrased ✨');
+}
+
+// ── CHIP SUGGESTIONS ──────────────────────────────────────────
+const CHIP_SUGGESTIONS = {
+  progress: [
+    'Deficiency noted — recommend specialist evaluation before next voyage.',
+    'Active wear observed — service at earliest opportunity.',
+    'Moisture readings elevated — further investigation advised.',
+    'Requires remediation — noted during survey.',
+    'Item observed — condition warrants monitoring and follow-up.',
+  ],
+  done: [
+    'Inspected and found satisfactory at time of survey.',
+    'No deficiencies observed — within acceptable parameters.',
+    'Functional — no action required at this time.',
+    'Condition acceptable — routine maintenance recommended.',
+  ],
+  na: [
+    'Not applicable to this vessel type.',
+    'Not fitted — noted in report.',
+    'Not accessible during survey — limitation noted in report.',
+  ],
+};
+
+function getChipSuggestion(status) {
+  const arr = CHIP_SUGGESTIONS[status] || CHIP_SUGGESTIONS.progress;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function renderChipSuggestion(status) {
+  const el = $('tray-chip-suggestion');
+  if (!el) return;
+  const text = getChipSuggestion(status);
+  el.innerHTML = '<span class="chip-prefix">🔍 Suggested:</span>' +
+    '<button class="chip-insert" data-text="' + text.replace(/"/g,'&quot;') + '">' + text + '</button>';
+  const btn = el.querySelector('.chip-insert');
+  if (btn) btn.addEventListener('click', () => insertChipSuggestion(btn.dataset.text));
+}
+
+function insertChipSuggestion(text) {
+  const ta = $('tray-note');
+  if (!ta) return;
+  ta.value = text;
+  if (_currentTrayId) State.items[_currentTrayId].finding.note = text;
+  ta.focus();
+}
+
+// ── COST FIELD ────────────────────────────────────────────────
+const TAX_LS_KEY = 'sansoon_tax_settings_v1';
+let taxSettings = { enabled: false, rate: 13 };
+
+function loadTaxSettings() {
+  try { const r = localStorage.getItem(TAX_LS_KEY); if (r) taxSettings = JSON.parse(r); } catch(e) {}
+}
+function saveTaxSettings() {
+  try { localStorage.setItem(TAX_LS_KEY, JSON.stringify(taxSettings)); } catch(e) {}
+}
+function setItemCost(itemId, val) {
+  if (State.items[itemId]) State.items[itemId].finding.cost = val;
+}
+
+function renderCostField(itemId) {
+  const el = $('tray-cost-field');
+  if (!el) return;
+  const s = State.items[itemId];
+  const val = (s && s.finding && s.finding.cost) ? s.finding.cost : '';
+  el.innerHTML =
+    '<label class="tray-field-label">Estimated Repair Cost (CAD $)</label>' +
+    '<input type="number" min="0" step="0.01" class="cost-input f-input" id="tray-cost-input"' +
+    ' placeholder="0.00" value="' + val + '">';
+  const inp = $('tray-cost-input');
+  if (inp) inp.addEventListener('input', function() { setItemCost(itemId, this.value); });
+}
+
+function getAllCostItems() {
+  const rows = [];
+  DB.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(item => {
+    const s = State.items[item.id];
+    if (s && s.finding && s.finding.cost && parseFloat(s.finding.cost) > 0) {
+      rows.push({
+        cat: cat.label, sub: sub.label, item: item.label,
+        note: s.finding.note, priority: s.finding.priority,
+        cost: parseFloat(s.finding.cost) || 0,
+      });
+    }
+  })));
+  return rows;
+}
+
+function buildCostPage() {
+  const rows = getAllCostItems();
+  if (!rows.length) return '';
+  const subtotal = rows.reduce((a, r) => a + r.cost, 0);
+  const taxAmt   = taxSettings.enabled ? subtotal * taxSettings.rate / 100 : 0;
+  const total    = subtotal + taxAmt;
+  const fmt      = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  const rowsHTML = rows.map((r, i) =>
+    '<tr>' +
+    '<td class="inv-n">' + (i+1) + '</td>' +
+    '<td class="inv-item"><strong>' + r.item + '</strong>' +
+      '<div class="inv-path">' + r.cat + ' › ' + r.sub + '</div>' +
+      (r.note ? '<div class="inv-note">' + r.note + '</div>' : '') + '</td>' +
+    '<td class="inv-pri">' + (r.priority ? '<span class="rpt-ftag p' + r.priority.toLowerCase() + '">Pri ' + r.priority + '</span>' : '—') + '</td>' +
+    '<td class="inv-cost">' + fmt(r.cost) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  return '<div class="rpt-sec-title">💰 Repair Estimate — Page 4</div>' +
+    '<div class="cost-tax-bar">' +
+      '<label class="cost-tax-toggle" style="display:flex;align-items:center;gap:8px;cursor:pointer">' +
+        '<input type="checkbox" id="rpt-tax-toggle"' + (taxSettings.enabled ? ' checked' : '') +
+          ' onchange="toggleReportTax(this.checked)">' +
+        (taxSettings.enabled ? '📦 Including Tax' : '❌ No Tax') +
+        '<span class="cost-tax-rate-wrap">(Rate: <input type="number" id="rpt-tax-rate"' +
+          ' class="cost-rate-input" value="' + taxSettings.rate + '" min="0" max="99"' +
+          ' onchange="updateTaxRate(this.value)">%)</span>' +
+      '</label>' +
+    '</div>' +
+    '<table class="inv-table">' +
+      '<thead><tr><th>#</th><th>Item Description</th><th>Priority</th><th>Est. Cost</th></tr></thead>' +
+      '<tbody>' + rowsHTML + '</tbody>' +
+      '<tfoot>' +
+        '<tr class="inv-subtotal"><td colspan="3">Subtotal</td><td>' + fmt(subtotal) + '</td></tr>' +
+        (taxSettings.enabled ? '<tr class="inv-tax"><td colspan="3">HST / Tax (' + taxSettings.rate + '%)</td><td>' + fmt(taxAmt) + '</td></tr>' : '') +
+        '<tr class="inv-total"><td colspan="3"><strong>Total Estimated Repairs</strong></td><td><strong>' + fmt(total) + '</strong></td></tr>' +
+      '</tfoot>' +
+    '</table>';
+}
+
+function toggleReportTax(enabled) {
+  taxSettings.enabled = enabled;
+  saveTaxSettings();
+  buildReport();
+}
+function updateTaxRate(val) {
+  taxSettings.rate = parseFloat(val) || 13;
+  saveTaxSettings();
+}
+
+// ── CUSTOM SECTIONS & ITEMS ───────────────────────────────────
+const LS_CUSTOM = 'sansoon_custom_v1';
+let customSections = [];
+
+function loadCustomSections() {
+  try { const r = localStorage.getItem(LS_CUSTOM); if (r) customSections = JSON.parse(r); } catch(e) {}
+}
+function saveCustomSections() {
+  try { localStorage.setItem(LS_CUSTOM, JSON.stringify(customSections)); } catch(e) {}
+}
+function injectCustomSectionIntoDB(cs) {
+  if (DB.find(c => c.id === cs.id)) return;
+  DB.push({ id: cs.id, label: cs.label, icon: '📝',
+    subcategories: [{ id: cs.id + '-sub', label: cs.label, items: cs.items }] });
+  cs.items.forEach(it => {
+    if (!State.items[it.id])
+      State.items[it.id] = { status: null, finding: { active:false, note:'', priority:null, photo:null, cost:'' } };
+  });
+}
+function addCustomSection(label) {
+  const id = 'custom-' + Date.now();
+  const cs = { id, label: label || 'Custom Section', items: [] };
+  customSections.push(cs);
+  saveCustomSections();
+  injectCustomSectionIntoDB(cs);
+}
+function addCustomItemToSection(catId, label) {
+  const itemId = 'ci-' + Date.now();
+  const cat = DB.find(c => c.id === catId);
+  if (!cat) return;
+  let customSub = cat.subcategories.find(s => s.id === catId + '-custom');
+  if (!customSub) {
+    customSub = { id: catId + '-custom', label: 'Custom Items', items: [] };
+    cat.subcategories.push(customSub);
+  }
+  customSub.items.push({ id: itemId, label: label || 'Custom item' });
+  State.items[itemId] = { status: null, finding: { active:false, note:'', priority:null, photo:null, cost:'' } };
+  const cs = customSections.find(s => s.id === catId);
+  if (cs) { cs.items.push({ id: itemId, label: label || 'Custom item' }); saveCustomSections(); }
+}
+
+// ── CUSTOM ITEM ADD BUTTON ─────────────────────────────────────
+function appendAddItemButton(catId) {
+  const acc = $('accordion');
+  if (!acc) return;
+  const existing = $('add-item-btn');
+  if (existing) existing.remove();
+  const btn = document.createElement('button');
+  btn.id = 'add-item-btn';
+  btn.className = 'add-item-btn';
+  btn.textContent = '➕ Add Custom Item to This Section';
+  btn.addEventListener('click', () => {
+    const label = prompt('Enter item description:');
+    if (!label) return;
+    addCustomItemToSection(catId, label);
+    buildSearchIndex();
+    renderAccordion();
+    appendAddItemButton(catId);
+    showToast('Item added');
+  });
+  acc.appendChild(btn);
+}
+
+// ── INLINE EDIT ───────────────────────────────────────────────
+function enableInlineEdit(itemId, labelEl) {
+  if (!labelEl) return;
+  const current = labelEl.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.className = 'inline-edit-input';
+  labelEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const commit = () => {
+    const newLabel = input.value.trim() || current;
+    DB.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(it => {
+      if (it.id === itemId) it.label = newLabel;
+    })));
+    buildSearchIndex();
+    renderAccordion();
+    appendAddItemButton(Nav.activeCategory);
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
+  });
+}
+
+// ── HUB PANEL ─────────────────────────────────────────────────
+function renderHub() {
+  const grid = $('hub-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  DB.forEach(cat => {
+    const st  = getStats(catItems(cat));
+    const pct = st.total ? Math.round(((st.done + st.na) / st.total) * 100) : 0;
+    const done = st.done + st.na;
+    const card = document.createElement('div');
+    card.className = 'hub-card' +
+      (st.findings ? ' hub-has-finding' : '') +
+      (Nav.activeCategory === cat.id ? ' hub-was-active' : '');
+    card.innerHTML =
+      '<div class="hub-card-icon">' + cat.icon + '</div>' +
+      '<div class="hub-card-label">' + cat.label + '</div>' +
+      '<div class="hub-progress-bar"><div class="hub-progress-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="hub-card-meta">' +
+        '<span class="hub-done-count">✅ ' + done + ' / ' + st.total + '</span>' +
+        (st.findings ? '<span class="hub-finding-dot">⚑' + st.findings + '</span>' : '') +
+      '</div>';
+    card.addEventListener('click', () => selectCategory(cat.id));
+    grid.appendChild(card);
+  });
+  // Add custom section card
+  const addCard = document.createElement('div');
+  addCard.className = 'hub-card hub-add-card';
+  addCard.innerHTML =
+    '<div class="hub-card-icon">➕</div>' +
+    '<div class="hub-card-label">Create Custom Section</div>' +
+    '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Add your own inspection category</div>';
+  addCard.addEventListener('click', () => {
+    const label = prompt('Enter new section name:');
+    if (!label) return;
+    addCustomSection(label);
+    buildSearchIndex();
+    renderHub();
+    showToast('Custom section added');
+  });
+  grid.appendChild(addCard);
+}
+
+// ── SEARCH ─────────────────────────────────────────────────────
+let _searchIndex = null;
+function buildSearchIndex() {
+  _searchIndex = [];
+  DB.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(item => {
+    _searchIndex.push({
+      catId: cat.id, catLabel: cat.label,
+      subLabel: sub.label, itemId: item.id,
+      label: item.label, lower: item.label.toLowerCase()
+    });
+  })));
+}
+function searchItems(query) {
+  if (!_searchIndex) buildSearchIndex();
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+  return _searchIndex.filter(r => r.lower.includes(q)).slice(0, 10);
+}
+function highlightMatch(label, q) {
+  const idx = label.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return label;
+  return label.slice(0, idx) +
+    '<mark class="search-mark">' + label.slice(idx, idx + q.length) + '</mark>' +
+    label.slice(idx + q.length);
+}
+function jumpToItem(itemId) {
+  const entry = (_searchIndex || []).find(r => r.itemId === itemId);
+  if (!entry) return;
+  selectCategory(entry.catId);
+  setTimeout(() => {
+    const cat = DB.find(c => c.id === entry.catId);
+    if (cat) {
+      const sub = cat.subcategories.find(s => s.items.some(i => i.id === itemId));
+      if (sub) { Nav.openAccordion = sub.id; renderAccordion(); renderContextBar(); appendAddItemButton(entry.catId); updateBackBtn(); }
+    }
+    setTimeout(() => {
+      const row = document.querySelector('.item-row[data-item-id="' + itemId + '"]');
+      if (row) {
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        row.classList.add('search-highlight');
+        setTimeout(() => row.classList.remove('search-highlight'), 2200);
+      }
+      openNoteTray(itemId);
+    }, 160);
+  }, 80);
+}
+function initSearchBar() {
+  const input   = $('global-search-input');
+  const results = $('global-search-results');
+  if (!input || !results) return;
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    if (!q) { results.style.display = 'none'; return; }
+    const hits = searchItems(q);
+    if (!hits.length) { results.style.display = 'none'; return; }
+    results.innerHTML = hits.map(h =>
+      '<div class="search-result-row" data-item-id="' + h.itemId + '">' +
+        '<span class="sr-cat">' + h.catLabel + ' › ' + h.subLabel + '</span>' +
+        '<span class="sr-label">' + highlightMatch(h.label, q) + '</span>' +
+      '</div>'
+    ).join('');
+    results.style.display = 'block';
+    results.querySelectorAll('.search-result-row').forEach(row => {
+      row.addEventListener('click', () => {
+        input.value = '';
+        results.style.display = 'none';
+        jumpToItem(row.dataset.itemId);
+      });
+    });
+  });
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !results.contains(e.target))
+      results.style.display = 'none';
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { input.value = ''; results.style.display = 'none'; }
+  });
+}
+
+// ── IMAGE MARKUP CANVAS ────────────────────────────────────────
+function openMarkupCanvas(dataUrl, itemId) {
+  const old = $('markup-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.id = 'markup-modal';
+  modal.className = 'markup-modal';
+  modal.innerHTML =
+    '<div class="markup-inner">' +
+      '<div class="markup-toolbar">' +
+        '<span class="markup-title">✏️ Mark Up Photo</span>' +
+        '<div class="markup-actions">' +
+          '<button id="markup-undo"  class="tb-btn">↩️ Undo</button>' +
+          '<button id="markup-save"  class="tb-btn primary">💾 Save Markup</button>' +
+          '<button id="markup-cancel" class="tb-btn danger">✕ Cancel</button>' +
+        '</div>' +
+      '</div>' +
+      '<canvas id="markup-canvas" class="markup-canvas"></canvas>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  const canvas = $('markup-canvas');
+  const ctx    = canvas.getContext('2d');
+  const history = [];
+  let drawing = false, lx = 0, ly = 0;
+
+  const img = new Image();
+  img.onload = () => {
+    const maxW = Math.min(img.width, window.innerWidth - 56);
+    const scale = maxW / img.width;
+    canvas.width  = Math.round(img.width  * scale);
+    canvas.height = Math.round(img.height * scale);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    history.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  };
+  img.src = dataUrl;
+
+  function getPos(e) {
+    const r = canvas.getBoundingClientRect();
+    const cx = (e.clientX !== undefined ? e.clientX : e.touches[0].clientX);
+    const cy = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY);
+    return [(cx - r.left) * (canvas.width / r.width),
+            (cy - r.top)  * (canvas.height / r.height)];
+  }
+  function drawLine(x1, y1, x2, y2) {
+    ctx.strokeStyle = '#e53535';
+    ctx.lineWidth   = 4;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
+  canvas.addEventListener('mousedown',  e => { drawing=true; [lx,ly]=getPos(e); history.push(ctx.getImageData(0,0,canvas.width,canvas.height)); });
+  canvas.addEventListener('mousemove',  e => { if(!drawing)return; const [x,y]=getPos(e); drawLine(lx,ly,x,y); [lx,ly]=[x,y]; });
+  canvas.addEventListener('mouseup',    () => { drawing=false; });
+  canvas.addEventListener('mouseleave', () => { drawing=false; });
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing=true; [lx,ly]=getPos(e); history.push(ctx.getImageData(0,0,canvas.width,canvas.height)); }, {passive:false});
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); if(!drawing)return; const [x,y]=getPos(e); drawLine(lx,ly,x,y); [lx,ly]=[x,y]; }, {passive:false});
+  canvas.addEventListener('touchend',   () => { drawing=false; });
+
+  $('markup-undo').addEventListener('click', () => {
+    if (history.length > 1) { history.pop(); ctx.putImageData(history[history.length-1],0,0); }
+  });
+  $('markup-save').addEventListener('click', () => {
+    const newData = canvas.toDataURL('image/jpeg', 0.88);
+    if (itemId && State.items[itemId]) {
+      State.items[itemId].finding.photo = newData;
+      renderTrayPhoto(newData);
+      refreshAll();
+    }
+    modal.remove();
+    showToast('Markup saved');
+  });
+  $('markup-cancel').addEventListener('click', () => modal.remove());
+}
+
