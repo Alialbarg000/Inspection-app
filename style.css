@@ -106,6 +106,18 @@ body {
 #back-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 #back-btn:hover { background: var(--card-hi); color: var(--text-bright); border-color: var(--accent); }
 
+/* Hub grid button */
+#hub-btn {
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 6px 10px; border-radius: var(--r);
+  border: 1px solid var(--border-hi);
+  background: var(--card); color: var(--text-mid);
+  cursor: pointer; transition: var(--tr); flex-shrink: 0;
+}
+#hub-btn svg { display: block; pointer-events: none; }
+#hub-btn:hover { background: var(--card-hi); color: var(--text-bright); border-color: var(--accent); }
+
 /* Brand */
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0; }
 .brand-mark {
