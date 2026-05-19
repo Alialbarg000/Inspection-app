@@ -283,77 +283,90 @@ const DB = [
   {
     id:'nav-electronics', label:'Nav & Electronics', icon:'🧭',
     subcategories:[
-      { id:'nv-instruments', label:'Navigation Instruments', items:[
-        {id:'nv01',label:'GPS/Chartplotter — function, charts current, transducer'},
-        {id:'nv02',label:'Depth sounder — function, calibration offset'},
-        {id:'nv03',label:'Knotmeter/log — function, impeller clean'},
-        {id:'nv04',label:'Wind instruments — function, masthead unit secure'},
-        {id:'nv05',label:'Compass — deviation card, lighting, mounting secure'},
-        {id:'nv06',label:'Radar (if fitted) — function, mount condition, power draw'},
-        {id:'nv07',label:'AIS transponder — Class B, MMSI, antenna, function test'},
-        {id:'nv08',label:'Autopilot — drive unit, controller, hydraulic or mechanical condition'},
+      { id:'ne-nav', label:'Navigation Electronics', items:[
+        {id:'ne01',label:'Chartplotter / MFD — operation, chart currency, antenna connection'},
+        {id:'ne02',label:'Depth sounder — calibration, operation, transducer condition'},
+        {id:'ne03',label:'Wind instruments — apparent/true wind, calibration, masthead unit'},
+        {id:'ne04',label:'AIS transponder — MMSI programmed, transmit/receive confirmed'},
+        {id:'ne05',label:'Radar — operation, antenna rotation, range test'},
+        {id:'ne06',label:'Autopilot — drive unit, controller, calibration, emergency disconnect'},
+        {id:'ne07',label:'VHF radio (at nav station) — DSC registered, operation tested'},
       ]},
-      { id:'nv-comm', label:'Communications', items:[
-        {id:'nc01',label:'VHF fixed mount — DSC, MMSI, antenna, wiring'},
-        {id:'nc02',label:'SSB/HAM radio (if fitted) — condition, ground plate, tuner'},
-        {id:'nc03',label:'Satellite phone/communicator — subscription current, antenna'},
-        {id:'nc04',label:'NOAA weather radio — reception, alarm function'},
+      { id:'ne-comms', label:'Instruments & Comms', items:[
+        {id:'nc01',label:'Barometer — present, calibrated, logging capability'},
+        {id:'nc02',label:'Log/speedometer — operation, calibration, transducer condition'},
+        {id:'nc03',label:'SSB or satellite phone — installation, grounding, antenna tuner'},
+        {id:'nc04',label:'Wiring and cable runs — labeling, routing, connector quality'},
       ]},
     ]
   },
   {
-    id:'anchoring', label:'Anchoring & Docking', icon:'⚓',
+    id:'lpg-fuel', label:'LPG & Fuel Systems', icon:'🔥',
+    subcategories:[
+      { id:'lp-lpg', label:'LPG / Propane', items:[
+        {id:'lp01',label:'LPG locker — dedicated, overboard drain, no ignition sources'},
+        {id:'lp02',label:'LPG cylinders — type, condition, valve, mounting secure'},
+        {id:'lp03',label:'Regulator — date, condition, pressure test, lock-off solenoid'},
+        {id:'lp04',label:'LPG hose — age, routing, no chafe, approved type'},
+        {id:'lp05',label:'Stove — burner condition, gimbals, fiddles, shutoff at stove'},
+        {id:'lp06',label:'LPG detector — present, sensor in bilge, alarm function tested'},
+      ]},
+      { id:'lp-fuel', label:'Fuel System', items:[
+        {id:'fu01',label:'Diesel tank — material, fill, vent, inspection port, gauge'},
+        {id:'fu02',label:'Fuel lines — material, routing, no chafe, shutoff valves'},
+        {id:'fu03',label:'Primary fuel filter / water separator — condition, service interval'},
+        {id:'fu04',label:'Day tank (if fitted) — condition, connections'},
+        {id:'fu05',label:'Fuel deck fill — label, cap, no spillage staining'},
+      ]},
+    ]
+  },
+  {
+    id:'anchoring', label:'Anchoring & Mooring', icon:'⛓️',
     subcategories:[
       { id:'an-ground', label:'Ground Tackle', items:[
-        {id:'an01',label:'Primary anchor — type, weight, appropriate for vessel size'},
-        {id:'an02',label:'Anchor chain — length, size, condition, galvanizing, marked at intervals'},
-        {id:'an03',label:'Anchor rode — length, diameter, condition, secured to bow cleat'},
-        {id:'an04',label:'Windlass — operation, chain counter, manual override, deck wash'},
-        {id:'an05',label:'Secondary anchor — type, weight, accessible, rode attached'},
-        {id:'an06',label:'Anchor stowage — secured on bow roller, no chafe on deck fittings'},
+        {id:'an01',label:'Primary anchor — type, weight appropriate for vessel, condition'},
+        {id:'an02',label:'Anchor chain — size, length, shackle moused, swivel condition'},
+        {id:'an03',label:'Anchor rode (rope) — diameter, length, chafe protection at hawse'},
+        {id:'an04',label:'Secondary / kedge anchor — present, stowed, accessible'},
+        {id:'an05',label:'Anchor locker — drainage, securing arrangement, rode marking'},
       ]},
-      { id:'an-docking', label:'Docking & Mooring', items:[
-        {id:'dk01x',label:'Dock lines — minimum 4 lines, diameter, length, condition, chafe gear'},
-        {id:'dk02x',label:'Fenders — quantity (minimum 4), size appropriate for vessel, condition'},
-        {id:'dk03x',label:'Boathook — present, functional, length appropriate'},
-      ]},
-    ]
-  },
-  {
-    id:'misc-systems', label:'Misc & Spares', icon:'🔩',
-    subcategories:[
-      { id:'ms-mechanical', label:'Additional Mechanical', items:[
-        {id:'ms01',label:'Air conditioning (if fitted) — seacock, raw water pump, thermostat, drain'},
-        {id:'ms02',label:'Heating system (if fitted) — fuel type, combustion air, CO risk, condition'},
-        {id:'ms03',label:'Swim ladder — deployment, securing, non-skid, drain'},
-        {id:'ms04',label:'Dinghy/tender — condition, registration, painter, oars'},
-      ]},
-      { id:'ms-misc', label:'Tools, Spares & Documentation', items:[
-        {id:'gn01',label:'Tool kit on board — appropriate for offshore self-sufficiency'},
-        {id:'gn02',label:'Spare parts inventory — impeller, filters, belts, bulbs, fuses'},
-        {id:'gn03',label:'Damage control equipment — softwood plugs at all through-hulls, taped'},
-        {id:'gn04',label:'Charts and pilot books — current edition, coverage for cruising area'},
-        {id:'gn05',label:'Operator manuals — engine, electronics, safety equipment on board'},
-        {id:'gn06',label:'Vessel logbook — maintained, records up to date'},
+      { id:'an-mooring', label:'Mooring & Towing', items:[
+        {id:'am01',label:'Dock lines — quantity (minimum 4), diameter, condition, chafe guards'},
+        {id:'am02',label:'Fenders — quantity, size appropriate, lines in good condition'},
+        {id:'am03',label:'Tow line — minimum 50 ft, appropriate diameter, bridle or bitter end'},
+        {id:'am04',label:'Cleats and chocks — condition, backing, no cracking at bases'},
       ]},
     ]
   },
   {
-    id:'lpg-system', label:'LPG / Cooking', icon:'🔥',
+    id:'bilge-systems', label:'Bilge & Flooding', icon:'💧',
     subcategories:[
-      { id:'lp-locker', label:'LPG Locker & Supply', items:[
-        {id:'lp01',label:'LPG locker — overboard drain only, no through-connections to interior'},
-        {id:'lp02',label:'Cylinder — type, date stamp, pressure relief valve present'},
-        {id:'lp03',label:'Regulator — date of manufacture, condition, rated for installed system'},
-        {id:'lp04',label:'LPG hose — age, approved marine type, no kinks or abrasion'},
-        {id:'lp05',label:'Solenoid shut-off valve — operation, panel switch labeled, fails-closed'},
-        {id:'lp06',label:'LPG detector/alarm — sensor at low point in bilge, test functional'},
+      { id:'bg-pumps', label:'Bilge Pumps & Alarms', items:[
+        {id:'bg01',label:'Electric bilge pump — float switch, manual override, discharge routing'},
+        {id:'bg02',label:'High-water bilge alarm — float height, audible alarm, wiring'},
+        {id:'bg03',label:'Manual bilge pump — type, handle present, accessible from cockpit'},
+        {id:'bg04',label:'Emergency bilge pump — capacity adequate for vessel size'},
+        {id:'bg05',label:'All bilge areas inspected — strum box clear, no debris blocking'},
       ]},
-      { id:'lp-stove', label:'Cooking Appliance', items:[
-        {id:'ls01',label:'Stove gimbaling — free movement, safety pin, range of swing adequate'},
-        {id:'ls02',label:'Stove fiddle rails — present, adequate height for seaway cooking'},
-        {id:'ls03',label:'Burner function — ignition, flame color, no yellow tipping'},
-        {id:'ls04',label:'Oven — operation, seal, temperature consistency'},
+      { id:'bg-flooding', label:'Flooding Risk Assessment', items:[
+        {id:'bf01',label:'All seacocks accounted for and operational'},
+        {id:'bf02',label:'Softwood bungs attached near each through-hull'},
+        {id:'bf03',label:'Hose clamps — double-clamped on all below-waterline hoses'},
+        {id:'bf04',label:'Hose condition — no cracking, collapse, or chafe'},
+        {id:'bf05',label:'Stuffing box / shaft seal — no excessive drip rate'},
+      ]},
+    ]
+  },
+  {
+    id:'canvas-covers', label:'Canvas & Covers', icon:'🧵',
+    subcategories:[
+      { id:'cv-covers', label:'Covers & Enclosures', items:[
+        {id:'cc01',label:'Dodger — frame, fabric, windows (clarity, crazing), zipper operation'},
+        {id:'cc02',label:'Bimini — frame joints, fabric UV condition, fittings secure'},
+        {id:'cc03',label:'Full enclosure panels — zip condition, attachment points, storage'},
+        {id:'cc04',label:'Sail covers — stitching, UV strip on furled headsail, snaps'},
+        {id:'cc05',label:'Cockpit cushions — mildew, foam, snap condition'},
+        {id:'cc06',label:'Winch covers — present, snug fit'},
       ]},
     ]
   },
@@ -411,9 +424,22 @@ function _historyPush() {
   history.pushState({ appNav: true, depth: Nav.stack.length }, '');
 }
 
+// ── STATE-AWARE POPSTATE ──────────────────────────────────────
 window.addEventListener('popstate', () => {
   history.pushState({ appNav: true, depth: Nav.stack.length }, '');
-  Nav.back();
+  if (Nav.current() === 'category') {
+    // Inside a section view — cleanly route back to hub
+    Nav.lastVisitedSection = Nav.activeCategory;
+    Nav.noteTrayOpen = false;
+    Nav.openAccordion = null;
+    Nav.stack.pop();
+    showView(Nav.stack[Nav.stack.length - 1]);
+    refreshAll();
+  } else {
+    // Already on hub or splash — delegate to Nav.back()
+    // which will trigger the confirmation modal if on hub
+    Nav.back();
+  }
 });
 
 function showBackToSplashConfirm() {
@@ -535,13 +561,16 @@ function enableDragScroll(el) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// §6  ACCORDION
+// §6  ACCORDION  (with horizontal-divider jump arrows)
 // ───────────────────────────────────────────────────────────────
 function renderAccordion() {
   const cat = DB.find(c => c.id === Nav.activeCategory);
   if (!cat) return;
   const acc = $('accordion');
   acc.innerHTML = '';
+
+  // Build the ordered list of sub IDs for this category (for jump targets)
+  const subIds = cat.subcategories.map(s => s.id);
 
   cat.subcategories.forEach((sub, idx) => {
     const st    = getStats(sub.items);
@@ -551,6 +580,21 @@ function renderAccordion() {
     const section = document.createElement('div');
     section.className = 'acc-section' + (isOpen ? ' open' : '');
     section.dataset.subId = sub.id;
+    section.id = 'acc-sec-' + sub.id;
+
+    // Determine prev/next jump targets within this category
+    const prevId = idx > 0 ? subIds[idx - 1] : null;
+    const nextId = idx < subIds.length - 1 ? subIds[idx + 1] : null;
+
+    const jumpArrowsHTML =
+      '<div class="acc-jump-arrows">' +
+        (prevId
+          ? `<button class="acc-jump-btn" title="Jump to previous section" data-target="acc-sec-${prevId}">&#8593;</button>`
+          : '<span class="acc-jump-spacer"></span>') +
+        (nextId
+          ? `<button class="acc-jump-btn" title="Jump to next section" data-target="acc-sec-${nextId}">&#8595;</button>`
+          : '<span class="acc-jump-spacer"></span>') +
+      '</div>';
 
     const hdr = document.createElement('div');
     hdr.className = 'acc-header';
@@ -563,10 +607,23 @@ function renderAccordion() {
         ${st.findings ? `<span class="acc-flag">⚑${st.findings}</span>` : ''}
         <span class="acc-count">${st.done+st.na}/${st.total}</span>
         <div class="acc-minibar"><div class="acc-minifill" style="width:${pct}%"></div></div>
+        ${jumpArrowsHTML}
       </div>`;
-    hdr.addEventListener('click', () => {
+
+    // Accordion toggle — ignores clicks on jump arrow buttons
+    hdr.addEventListener('click', e => {
+      if (e.target.closest('.acc-jump-btn')) return;
       Nav.openAccordion = Nav.openAccordion === sub.id ? null : sub.id;
       renderAccordion(); renderContextBar(); updateBackBtn();
+    });
+
+    // Wire up jump arrow click handlers after DOM is built
+    hdr.querySelectorAll('.acc-jump-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const target = document.getElementById(btn.dataset.target);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     });
 
     const body = document.createElement('div');
@@ -888,12 +945,27 @@ function refreshAll() {
 }
 
 // ───────────────────────────────────────────────────────────────
-// §12  KEYBOARD
+// §12  KEYBOARD  (state-aware Escape)
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (document.getElementById('nav-confirm-overlay')) return;
-    e.preventDefault(); Nav.back();
+    e.preventDefault();
+    if (Nav.noteTrayOpen) {
+      // Always let the tray handle its own Escape first
+      closeNoteTray(); return;
+    }
+    if (Nav.current() === 'category') {
+      // Inside a section view — cleanly route back to hub
+      Nav.lastVisitedSection = Nav.activeCategory;
+      Nav.openAccordion = null;
+      Nav.stack.pop();
+      showView(Nav.stack[Nav.stack.length - 1]);
+      refreshAll();
+    } else {
+      // On hub or any other view — delegate (triggers confirm modal on hub)
+      Nav.back();
+    }
   }
 });
 
@@ -1488,9 +1560,6 @@ function initSearchBar() {
 }
 
 // ── Mobile search expand/collapse ─────────────────────────────
-// On ≤600px the search bar is hidden. Tapping the magnifier icon
-// adds .expanded to #search-wrap to reveal it, then removes it
-// when the user blurs or clears the input.
 function initMobileSearch() {
   const btn   = $('mobile-search-btn');
   const wrap  = $('search-wrap');
@@ -1504,7 +1573,6 @@ function initMobileSearch() {
   });
 
   input.addEventListener('blur', () => {
-    // Only collapse when the field is empty
     if (!input.value.trim()) {
       wrap.classList.remove('expanded');
       btn.classList.remove('active');
@@ -1512,7 +1580,6 @@ function initMobileSearch() {
   });
 
   input.addEventListener('input', () => {
-    // If user clears the field, collapse after a short delay
     if (!input.value.trim()) {
       setTimeout(() => {
         if (!input.value.trim()) {
@@ -1527,7 +1594,6 @@ function initMobileSearch() {
 // ───────────────────────────────────────────────────────────────
 // §19  IMAGE MARKUP CANVAS  (with color swatches)
 // ───────────────────────────────────────────────────────────────
-// Available brush colors. Red is the default.
 const MARKUP_COLORS = [
   { hex:'#e53535', label:'Red'    },
   { hex:'#f5c518', label:'Yellow' },
@@ -1539,10 +1605,8 @@ function openMarkupCanvas(dataUrl, itemId) {
   const old = $('markup-modal');
   if (old) old.remove();
 
-  // Track active color across this canvas session
   let activeColor = MARKUP_COLORS[0].hex;
 
-  // Build color swatch HTML
   const swatchHTML = MARKUP_COLORS.map(c =>
     `<button class="markup-swatch${c.hex === activeColor ? ' active' : ''}"
        data-color="${c.hex}" title="${c.label}"
@@ -1570,7 +1634,6 @@ function openMarkupCanvas(dataUrl, itemId) {
     '</div>';
   document.body.appendChild(modal);
 
-  // Wire up color swatches
   modal.querySelectorAll('.markup-swatch').forEach(btn => {
     btn.addEventListener('click', () => {
       activeColor = btn.dataset.color;
@@ -1602,7 +1665,7 @@ function openMarkupCanvas(dataUrl, itemId) {
   }
 
   function drawLine(x1, y1, x2, y2) {
-    ctx.strokeStyle = activeColor;   // uses the currently selected swatch color
+    ctx.strokeStyle = activeColor;
     ctx.lineWidth   = 4;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
