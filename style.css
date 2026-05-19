@@ -1029,7 +1029,35 @@ select.f-input { cursor: pointer; }
   transform: translateY(-2px);
 }
 .hub-card.hub-has-finding { border-color: var(--flag); }
-.hub-card.hub-was-active  { border-color: var(--s-done-bd); box-shadow: 0 0 16px var(--s-done-glow); }
+/* BUG 2 FIX — last-visited highlight: teal border + ambient glow + warm background tint
+   so inspectors can instantly see which section they just came back from. */
+.hub-card.hub-last-visited {
+  border-color: var(--s-done-bd);
+  background: linear-gradient(145deg, #0e2620 0%, #0c1f2c 60%, var(--card) 100%);
+  box-shadow:
+    0 0 0 1px var(--s-done-bd),
+    0 0 18px var(--s-done-glow),
+    0 4px 20px rgba(0,0,0,.45);
+  position: relative;
+}
+.hub-card.hub-last-visited::before {
+  content: '▶  Last Visited';
+  position: absolute;
+  top: -1px;
+  right: 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--s-done-tx);
+  background: var(--s-done-bg);
+  border: 1px solid var(--s-done-bd);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  padding: 2px 8px;
+  pointer-events: none;
+}
 .hub-card-icon   { font-size: 34px; line-height: 1; }
 .hub-card-label  { font-size: 16px; font-weight: 600; color: var(--text-bright); }
 .hub-progress-bar  { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
