@@ -641,10 +641,11 @@ function showBackToSplashConfirm() {
 
 
 function updateBackBtn() {
-  const btn = document.getElementById('back-btn');
-  if (!btn) return;
-  const show = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
-  btn.style.display = show ? 'inline-flex' : 'none';
+  const btn    = document.getElementById('back-btn');
+  const hubBtn = document.getElementById('hub-btn');
+  const show   = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
+  if (btn)    btn.style.display    = show ? 'inline-flex' : 'none';
+  if (hubBtn) hubBtn.style.display = show ? 'inline-flex' : 'none';
 }
 
 function showView(view) {
@@ -1493,8 +1494,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('v-date').valueAsDate = new Date();
 
   document.querySelectorAll('.filter-pill').forEach(b=>b.addEventListener('click',()=>setFilter(b.dataset.filter)));
+  // ── Back button (← Back in topbar) ──────────────────────────
   $('back-btn').addEventListener('click', e => { e.stopPropagation(); Nav.back(); });
-$('back-btn').addEventListener('pointerdown', e => { e.stopPropagation(); });
+  $('back-btn').addEventListener('pointerdown', e => { e.stopPropagation(); });
+
+  // ── Hub/grid-icon button (next to search bar) ────────────────
+  const hubBtn = $('hub-btn');
+  if (hubBtn) {
+    hubBtn.addEventListener('click',       e => { e.stopPropagation(); Nav.back(); });
+    hubBtn.addEventListener('pointerdown', e => { e.stopPropagation(); });
+  }
   $('btn-report').addEventListener('click',openReport);
   $('btn-pdf').addEventListener('click',downloadPDF);
   $('btn-refresh-rpt').addEventListener('click',buildReport);
