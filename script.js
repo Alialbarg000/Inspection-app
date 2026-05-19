@@ -1368,25 +1368,68 @@ function downloadPDF() {
     } catch(e) {}
   }
 
-  // Info table on cover
+  // Info table on cover — fixed column widths for perfect alignment
+  const COL_KEY  = 42;   // fixed width for the label column
+  const COL_VAL  = M + COL_KEY + 3;  // value always starts at the same x
+  const ROW_H    = 7.5;  // consistent row height
   const infoRows=[['Surveyor',I.surveyor],['Client',I.client],['HIN / Hull ID',I.hin],
                   ['Location',I.location],['Weather',I.weather],['Reference',I.ref]];
-  let iy=photoBottom+4;
-  infoRows.forEach(([k,v])=>{
-    doc.setFontSize(7.5);doc.setFont('helvetica','bold');doc.setTextColor(100,125,160);
-    doc.text(k.toUpperCase(),M,iy);
-    doc.setFont('helvetica','normal');doc.setTextColor(210,225,240);
-    doc.text(String(v),M+36,iy); iy+=7;
+  let iy=photoBottom+6;
+  infoRows.forEach(([k,v],rowIdx)=>{
+    // Alternating row tint for easy scanning
+    if (rowIdx % 2 === 0) {
+      doc.setFillColor(14,24,40); doc.rect(M, iy-4, CW, ROW_H, 'F');
+    }
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(100,125,160);
+    doc.text(k.toUpperCase(), M+3, iy);
+    doc.setFont('helvetica','normal'); doc.setTextColor(210,225,240);
+    const valLines = doc.splitTextToSize(String(v), CW - COL_KEY - 6);
+    doc.text(valLines, COL_VAL, iy);
+    iy += Math.max(ROW_H, valLines.length * ROW_H);
   });
 
-  // Stats band
-  iy+=5;
-  doc.setFillColor(18,28,46);doc.roundedRect(M,iy,CW,18,2,2,'F');
-  doc.setFillColor(192,25,44);doc.rect(M,iy,2.5,18,'F');
-  const sts=[`${pct}%`,`${F.A.length}`,`${F.B.length}`,`${F.C.length}`,`${g.done}`,`${g.na}`];
-  const stl=['Complete','Pri A','Pri B','Pri C','Done','N/A'];
-  const sw=CW/sts.length;
-  sts.forEach((v,i)=>{const x=M+i*sw+sw/2;doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(220,230,245);doc.text(v,x,iy+9,{align:'center'});doc.setFontSize(6);doc.setFont('helvetica','normal');doc.setTextColor(100,120,155);doc.text(stl[i],x,iy+14.5,{align:'center'});});
+  // Stats band — balanced 3×2 or 6×1 grid, centred with proper card padding
+  iy += 6;
+  const STATS_ROWS    = 2;
+  const STATS_COLS    = 3;
+  const CARD_W        = CW / STATS_COLS;
+  const CARD_H        = 18;
+  const statsBandH    = STATS_ROWS * CARD_H + 4;
+
+  doc.setFillColor(18,28,46);
+  doc.roundedRect(M, iy, CW, statsBandH, 2, 2, 'F');
+  // Accent left bar
+  doc.setFillColor(192,25,44);
+  doc.rect(M, iy, 2.5, statsBandH, 'F');
+
+  const sts  = [`${pct}%`, `${F.A.length}`, `${F.B.length}`, `${F.C.length}`, `${g.done}`, `${g.na}`];
+  const stl  = ['Complete', 'Pri A',         'Pri B',         'Pri C',         'Done',       'N/A'];
+  const stcl = [
+    [220,230,245], [220,38,38], [215,115,5], [59,130,200], [13,148,84], [100,140,195]
+  ];
+
+  sts.forEach((v, i) => {
+    const col  = i % STATS_COLS;
+    const row  = Math.floor(i / STATS_COLS);
+    const cx   = M + col * CARD_W + CARD_W / 2;
+    const cy   = iy + row * CARD_H + CARD_H * 0.52;
+
+    // Divider lines between columns (skip first)
+    if (col > 0) {
+      doc.setDrawColor(30,45,65); doc.setLineWidth(0.3);
+      doc.line(M + col * CARD_W, iy + 2, M + col * CARD_W, iy + statsBandH - 2);
+    }
+    // Divider between rows
+    if (row === 1 && col === 0) {
+      doc.setDrawColor(30,45,65); doc.setLineWidth(0.3);
+      doc.line(M + 3, iy + CARD_H, M + CW, iy + CARD_H);
+    }
+
+    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...stcl[i]);
+    doc.text(v, cx, cy, { align:'center' });
+    doc.setFontSize(6);  doc.setFont('helvetica','normal'); doc.setTextColor(100,120,155);
+    doc.text(stl[i], cx, cy + 4.5, { align:'center' });
+  });
 
   // ── PAGE 2: TABLE OF CONTENTS ────────────────────────────────
   doc.addPage();
