@@ -731,7 +731,7 @@ function buildItemRow(item, num) {
   row.innerHTML = `
     <span class="item-num">${String(num).padStart(2,'0')}</span>
     <span class="item-label" id="il-${item.id}">${item.label}</span>
-      <button class="edit-label-btn" title="Rename item" onclick="enableInlineEdit(`${item.id}`,document.getElementById(`il-${item.id}`))">✏️</button>
+      <button class="edit-label-btn" title="Rename item" onclick="enableInlineEdit('${item.id}',document.getElementById('il-${item.id}'))">✏️</button>
     <div class="item-controls">
       ${hasPhoto ? `<span class="photo-indicator" title="Photo attached">📷</span>` : ''}
       <button class="pill-btn ${STATUS_CLASS[s.status]}" data-id="${item.id}">
@@ -840,13 +840,26 @@ function renderTrayPhoto(data) {
   const c = $('tray-photo-preview');
   if (!data) { c.innerHTML=''; c.style.display='none'; return; }
   c.style.display='block';
-  c.innerHTML = `<div class="tray-photo-wrap" style="position:relative">
-    <img src="${data}" class="tray-photo-img" alt="Inspection photo"
-         style="cursor:pointer" title="Click to mark up"
-         onclick="openMarkupCanvas('${data.replace(/'/g,\"\\\"\")}','${_currentTrayId}')">
-    <button class="tray-markup-btn" onclick="openMarkupCanvas(this.closest('.tray-photo-wrap').querySelector('img').src,'${_currentTrayId}')">✏️ Mark up</button>
-    <button class="tray-photo-remove" onclick="removePhoto()">✕</button>
-  </div>`;
+  const img = document.createElement('img');
+  img.src = data;
+  img.className = 'tray-photo-img';
+  img.style.cursor = 'pointer';
+  img.title = 'Click to mark up';
+  img.addEventListener('click', () => openMarkupCanvas(data, _currentTrayId));
+  const markupBtn = document.createElement('button');
+  markupBtn.className = 'tray-markup-btn';
+  markupBtn.textContent = '✏️ Mark up';
+  markupBtn.addEventListener('click', () => openMarkupCanvas(img.src, _currentTrayId));
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'tray-photo-remove';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', removePhoto);
+  const wrap = document.createElement('div');
+  wrap.className = 'tray-photo-wrap';
+  wrap.style.position = 'relative';
+  wrap.append(img, markupBtn, removeBtn);
+  c.innerHTML = '';
+  c.appendChild(wrap);
 }
 
 function removePhoto() {
