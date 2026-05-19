@@ -640,6 +640,7 @@ function showBackToSplashConfirm() {
 }
 
 
+function updateBackBtn() {
   const btn = document.getElementById('back-btn');
   if (!btn) return;
   const show = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
