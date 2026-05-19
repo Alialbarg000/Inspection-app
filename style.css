@@ -674,7 +674,13 @@ select.f-input { cursor: pointer; }
 .rpt-find-group.pri-c { border: 1px solid var(--pc); } .rpt-find-group.pri-c .rpt-find-hdr { background: var(--pc-bg); color: var(--pc); }
 .rpt-find-row  { display: flex; gap: 12px; padding: 11px 16px; border-top: 1px solid rgba(255,255,255,.03); background: rgba(0,0,0,.14); }
 .rpt-find-n    { font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); min-width: 22px; padding-top: 2px; }
-.rpt-find-path { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 3px; }
+.rpt-find-path { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 3px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rpt-find-cost {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--s-done-tx); background: var(--s-done-bg);
+  border: 1px solid var(--s-done-bd); border-radius: var(--r-pill);
+  padding: 1px 8px; white-space: nowrap; margin-left: auto;
+}
 .rpt-find-item { font-size: 15px; font-weight: 600; color: var(--text-bright); margin-bottom: 3px; }
 .rpt-find-note { font-size: 14px; color: var(--text-mid); font-style: italic; margin-bottom: 6px; }
 .rpt-find-photo { margin-top: 8px; }
