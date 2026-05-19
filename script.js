@@ -546,17 +546,100 @@ const Nav = {
   openAccordion: null,
   noteTrayOpen: false,
 
-  push(level) { this.stack.push(level); updateBackBtn(); },
+  push(level) {
+    this.stack.push(level);
+    updateBackBtn();
+    _historyPush();
+  },
   back() {
-    if (this.noteTrayOpen)   { closeNoteTray(); return; }
-    if (this.openAccordion)  { this.openAccordion = null; renderAccordion(); renderContextBar(); updateBackBtn(); return; }
+    if (this.noteTrayOpen)  { closeNoteTray(); return; }
+    if (this.openAccordion) {
+      this.openAccordion = null;
+      renderAccordion(); renderContextBar(); updateBackBtn();
+      return;
+    }
+    // If we're in a category view, go back to hub
+    if (this.current() === 'category') {
+      this.stack.pop();
+      showView(this.stack[this.stack.length - 1]);
+      return;
+    }
+    // If we're on the hub, confirm before returning to client setup (splash)
+    if (this.current() === 'hub') {
+      showBackToSplashConfirm();
+      return;
+    }
+    // Report -> go back to wherever we came from
     if (this.stack.length > 1) this.stack.pop();
     showView(this.stack[this.stack.length - 1]);
   },
   current() { return this.stack[this.stack.length - 1]; }
 };
 
-function updateBackBtn() {
+// ── HISTORY API: keep browser/phone back inside the app ───────
+function _historyPush() {
+  history.pushState({ appNav: true, depth: Nav.stack.length }, '');
+}
+
+window.addEventListener('popstate', e => {
+  // Always push a fresh state so the browser always has "somewhere to go back to"
+  // then let Nav.back() decide what to do inside the app.
+  history.pushState({ appNav: true, depth: Nav.stack.length }, '');
+  Nav.back();
+});
+
+// ── CONFIRM OVERLAY: "Return to client setup?" ────────────────
+function showBackToSplashConfirm() {
+  // Remove any existing overlay
+  const old = document.getElementById('nav-confirm-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'nav-confirm-overlay';
+  overlay.style.cssText =
+    'position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;' +
+    'justify-content:center;z-index:9999;';
+
+  const box = document.createElement('div');
+  box.style.cssText =
+    'background:var(--surface,#101a2b);border:1px solid var(--border,#1e2f48);border-radius:12px;' +
+    'padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);';
+
+  box.innerHTML =
+    '<div style="font-size:28px;margin-bottom:12px">⚓</div>' +
+    '<div style="font-size:16px;font-weight:600;color:var(--text,#d8e6f4);margin-bottom:8px">' +
+      'Return to Client Setup?' +
+    '</div>' +
+    '<div style="font-size:13px;color:var(--text-dim,#637a96);margin-bottom:24px">' +
+      'Your inspection progress is saved. You can return to the survey at any time.' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;justify-content:center;">' +
+      '<button id="nav-confirm-cancel" style="flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--border,#1e2f48);' +
+        'background:transparent;color:var(--text,#d8e6f4);cursor:pointer;font-size:14px;">Stay Here</button>' +
+      '<button id="nav-confirm-yes"    style="flex:1;padding:10px 0;border-radius:8px;border:none;' +
+        'background:var(--accent,#c0192c);color:#fff;cursor:pointer;font-size:14px;font-weight:600;">Yes, Go Back</button>' +
+    '</div>';
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  document.getElementById('nav-confirm-yes').addEventListener('click', () => {
+    overlay.remove();
+    // Pop back to splash
+    while (Nav.stack.length > 1) Nav.stack.pop();
+    showView('splash');
+  });
+  document.getElementById('nav-confirm-cancel').addEventListener('click', () => {
+    overlay.remove();
+  });
+  // Dismiss on backdrop click
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  // Escape also dismisses
+  const esc = e => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
+
+
   const btn = document.getElementById('back-btn');
   if (!btn) return;
   const show = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
@@ -569,6 +652,10 @@ function showView(view) {
   document.getElementById('work-area').style.display    = view === 'category' ? 'flex'  : 'none';
   document.getElementById('report-panel').style.display = view === 'report'   ? 'block' : 'none';
   updateBackBtn();
+  // Always ensure there is a history entry so browser/phone back is intercepted
+  if (history.state === null || !history.state.appNav) {
+    history.replaceState({ appNav: true, depth: Nav.stack.length }, '');
+  }
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1035,7 +1122,12 @@ function refreshAll() {
 // §12  KEYBOARD
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { e.preventDefault(); Nav.back(); }
+  if (e.key === 'Escape') {
+    // If the confirm overlay is open, let its own handler deal with it
+    if (document.getElementById('nav-confirm-overlay')) return;
+    e.preventDefault();
+    Nav.back();
+  }
 });
 
 // ───────────────────────────────────────────────────────────────
@@ -1404,7 +1496,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('btn-report').addEventListener('click',openReport);
   $('btn-pdf').addEventListener('click',downloadPDF);
   $('btn-refresh-rpt').addEventListener('click',buildReport);
-  $('btn-back-survey').addEventListener('click',()=>Nav.back());
+  $('btn-back-survey').addEventListener('click', () => {
+    // Pop 'report' off the stack and show whatever was before it
+    if (Nav.current() === 'report' && Nav.stack.length > 1) Nav.stack.pop();
+    showView(Nav.stack[Nav.stack.length - 1]);
+    refreshAll();
+  });
   $('btn-reset').addEventListener('click',resetAll);
 
   $('btn-start').addEventListener('click',()=>{
@@ -1438,6 +1535,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   showView('splash');
   renderCategoryBar();
   renderProgress();
+  // Seed history so the browser/phone back button is always intercepted from the start
+  history.replaceState({ appNav: true, depth: 1 }, '');
 });
 
 // ═══════════════════════════════════════════════════════════════
