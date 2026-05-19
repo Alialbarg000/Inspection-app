@@ -1493,7 +1493,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('v-date').valueAsDate = new Date();
 
   document.querySelectorAll('.filter-pill').forEach(b=>b.addEventListener('click',()=>setFilter(b.dataset.filter)));
-  $('back-btn').addEventListener('click',()=>Nav.back());
+  $('back-btn').addEventListener('click', e => { e.stopPropagation(); Nav.back(); });
+$('back-btn').addEventListener('pointerdown', e => { e.stopPropagation(); });
   $('btn-report').addEventListener('click',openReport);
   $('btn-pdf').addEventListener('click',downloadPDF);
   $('btn-refresh-rpt').addEventListener('click',buildReport);
@@ -1532,6 +1533,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Drag scroll on catbar
   enableDragScroll(document.querySelector('.catbar'));
   initSearchBar();
+  // Prevent search-results overlay from blocking the back button
+  const _sr = $('global-search-results');
+  if (_sr) _sr.addEventListener('pointerdown', e => e.stopPropagation());
 
   showView('splash');
   renderCategoryBar();
