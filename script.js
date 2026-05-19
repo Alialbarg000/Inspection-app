@@ -2141,25 +2141,58 @@ function renderHub() {
   const grid = $('hub-grid');
   if (!grid) return;
   grid.innerHTML = '';
+
   DB.forEach(cat => {
-    const st  = getStats(catItems(cat));
-    const pct = st.total ? Math.round(((st.done + st.na) / st.total) * 100) : 0;
-    const done = st.done + st.na;
+    // ── Calculate this category's completion stats cleanly ──
+    const items = catItems(cat);           // flat array of all items in this category
+    const st    = getStats(items);         // { total, done, prog, na, findings, rem }
+    const completed = st.done + st.na;     // "done" + "N/A" both count as completed
+    const pct   = st.total > 0 ? Math.round((completed / st.total) * 100) : 0;
+
+    // ── Choose badge colour based on completion level ──
+    const badgeBg =
+      pct === 100 ? '#0d9450' :  // full green when complete
+      pct >= 50   ? '#c58a00' :  // amber when halfway
+                    'var(--accent, #c0192c)'; // crimson when < 50 %
+
     const card = document.createElement('div');
     card.className = 'hub-card' +
-      (st.findings ? ' hub-has-finding' : '') +
+      (st.findings    ? ' hub-has-finding' : '') +
       (Nav.activeCategory === cat.id ? ' hub-was-active' : '');
+
     card.innerHTML =
-      '<div class="hub-card-icon">' + cat.icon + '</div>' +
+      // Icon row — icon left, percentage badge right
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">' +
+        '<div class="hub-card-icon">' + cat.icon + '</div>' +
+        '<span class="hub-pct-badge" style="' +
+          'display:inline-flex;align-items:center;justify-content:center;' +
+          'min-width:44px;height:24px;padding:0 8px;border-radius:12px;' +
+          'background:' + badgeBg + ';' +
+          'color:#fff;font-size:12px;font-weight:700;' +
+          'font-family:\'IBM Plex Mono\',monospace;letter-spacing:0.02em;' +
+          'flex-shrink:0;margin-top:2px;' +
+          'box-shadow:0 1px 4px rgba(0,0,0,.35);' +
+        '">' + pct + '%</span>' +
+      '</div>' +
+
+      // Section label
       '<div class="hub-card-label">' + cat.label + '</div>' +
-      '<div class="hub-progress-bar"><div class="hub-progress-fill" style="width:' + pct + '%"></div></div>' +
+
+      // Thin progress bar
+      '<div class="hub-progress-bar">' +
+        '<div class="hub-progress-fill" style="width:' + pct + '%"></div>' +
+      '</div>' +
+
+      // Count row — checked / total + optional finding flag
       '<div class="hub-card-meta">' +
-        '<span class="hub-done-count">✅ ' + done + ' / ' + st.total + '</span>' +
+        '<span class="hub-done-count">✅ ' + completed + ' / ' + st.total + '</span>' +
         (st.findings ? '<span class="hub-finding-dot">⚑' + st.findings + '</span>' : '') +
       '</div>';
+
     card.addEventListener('click', () => selectCategory(cat.id));
     grid.appendChild(card);
   });
+
   // Add custom section card
   const addCard = document.createElement('div');
   addCard.className = 'hub-card hub-add-card';
