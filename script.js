@@ -543,6 +543,7 @@ const DB = [
 const Nav = {
   stack: ['splash'],
   activeCategory: null,
+  lastVisitedSection: null,   // BUG 2 FIX: tracks the last category the inspector was in
   openAccordion: null,
   noteTrayOpen: false,
 
@@ -560,8 +561,10 @@ const Nav = {
     }
     // If we're in a category view, go back to hub
     if (this.current() === 'category') {
+      this.lastVisitedSection = this.activeCategory;  // BUG 2 FIX: record section before leaving
       this.stack.pop();
       showView(this.stack[this.stack.length - 1]);
+      refreshAll();
       return;
     }
     // If we're on the hub, confirm before returning to client setup (splash)
@@ -1066,6 +1069,7 @@ function removeVesselPhoto() {
 // ───────────────────────────────────────────────────────────────
 function selectCategory(catId) {
   Nav.activeCategory = catId;
+  Nav.lastVisitedSection = null;   // BUG 2 FIX: clear highlight while inspector is inside a section
   // Initialize openAccordion to the first subcategory so it opens on entry.
   // This is the ONLY place this assignment belongs — NOT inside renderAccordion(),
   // because that would counteract Nav.back() which deliberately sets it to null.
@@ -1127,7 +1131,11 @@ function refreshAll() {
     renderAccordion();
     appendAddItemButton(Nav.activeCategory);
   }
-  if (Nav.current() === 'hub') renderHub();
+  // BUG 1 FIX: always keep hub card stats current, regardless of which view is active.
+  // renderHub() is cheap (no network I/O) and ensures counters are never stale when
+  // the inspector navigates back from a checklist to the Survey Hub.
+  const hubPanel = document.getElementById('hub-panel');
+  if (hubPanel) renderHub();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1750,7 +1758,7 @@ function downloadPDF() {
 function resetAll() {
   if(!confirm('Reset all inspection data? This cannot be undone.')) return;
   initState(); State.vesselPhoto=null;
-  Nav.stack=['splash']; Nav.activeCategory=null; Nav.openAccordion=null; Nav.noteTrayOpen=false; _currentTrayId=null;
+  Nav.stack=['splash']; Nav.activeCategory=null; Nav.lastVisitedSection=null; Nav.openAccordion=null; Nav.noteTrayOpen=false; _currentTrayId=null;
   State.filterMode='all';
   document.querySelectorAll('.filter-pill').forEach(b=>b.classList.toggle('active',b.dataset.filter==='all'));
   $('note-tray').classList.remove('open'); $('tray-overlay').classList.remove('visible');
@@ -1785,6 +1793,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   if (_hubBtn) {
     _hubBtn.addEventListener('click', e => {
       e.stopPropagation();
+      // BUG 2 FIX: record which section we're leaving before returning to hub
+      if (Nav.current() === 'category') Nav.lastVisitedSection = Nav.activeCategory;
       // Close any open accordion/tray first, then pop to hub
       Nav.noteTrayOpen = false;
       Nav.openAccordion = null;
@@ -2158,7 +2168,7 @@ function renderHub() {
     const card = document.createElement('div');
     card.className = 'hub-card' +
       (st.findings    ? ' hub-has-finding' : '') +
-      (Nav.activeCategory === cat.id ? ' hub-was-active' : '');
+      (Nav.lastVisitedSection === cat.id ? ' hub-last-visited' : '');
 
     card.innerHTML =
       // Icon row — icon left, percentage badge right
