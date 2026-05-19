@@ -1171,11 +1171,14 @@ function buildReport() {
   const g   = globalStats();
   const pct = g.total ? Math.round(((g.done+g.na)/g.total)*100) : 0;
 
-  // Collect findings
+  // Collect findings (include cost data for the web report)
   const F = {A:[],B:[],C:[]};
   DB.forEach(cat => cat.subcategories.forEach(sub => sub.items.forEach(item => {
     const s=State.items[item.id];
-    if(s.finding.active){const p=s.finding.priority||'C';F[p].push({cat:cat.label,sub:sub.label,item:item.label,note:s.finding.note,photo:s.finding.photo});}
+    if(s.finding.active){
+      const p=s.finding.priority||'C';
+      F[p].push({cat:cat.label,sub:sub.label,item:item.label,note:s.finding.note,photo:s.finding.photo,cost:parseFloat(s.finding.cost)||0});
+    }
   })));
 
   const findHTML = () => {
@@ -1190,7 +1193,7 @@ function buildReport() {
           <div class="rpt-find-row">
             <span class="rpt-find-n">${i+1}</span>
             <div class="rpt-find-body">
-              <div class="rpt-find-path">${f.cat} › ${f.sub}</div>
+              <div class="rpt-find-path">${f.cat} › ${f.sub}${f.cost>0?`<span class="rpt-find-cost">$${f.cost.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}</span>`:''}</div>
               <div class="rpt-find-item">${f.item}</div>
               ${f.note?`<div class="rpt-find-note">"${f.note}"</div>`:''}
               ${f.photo?`<div class="rpt-find-photo"><img src="${f.photo}" class="rpt-photo-img" alt="Finding photo"></div>`:''}
@@ -1289,12 +1292,26 @@ function buildReport() {
 
 // ───────────────────────────────────────────────────────────────
 // §14  PDF EXPORT  (logo, vessel photo, embedded finding photos)
+//      Typography: native core fonts only — helvetica / helvetica-bold
+//      so all text renders crisp and fully visible in every PDF viewer.
 // ───────────────────────────────────────────────────────────────
 function downloadPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const W=210, M=15, CW=W-M*2;
   let y=0;
+
+  // ── Helpers ──────────────────────────────────────────────────
+  // setF: bulletproof font setter — always uses native helvetica
+  const setF = (sz, style) => {
+    doc.setFontSize(sz);
+    doc.setFont('helvetica', style || 'normal');
+  };
+  // clr: set text colour from an [r,g,b] array or three args
+  const clr = (r,g,b) => doc.setTextColor(r,g,b);
+  const fill = (r,g,b) => doc.setFillColor(r,g,b);
+  const draw = (r,g,b) => doc.setDrawColor(r,g,b);
+  const fmt$ = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
   const I = {
     vessel:   $('v-name').value    || 'Unnamed Vessel',
@@ -1313,29 +1330,36 @@ function downloadPDF() {
 
   const g   = globalStats();
   const pct = g.total ? Math.round(((g.done+g.na)/g.total)*100) : 0;
+
+  // Collect findings — include cost data
   const F={A:[],B:[],C:[]};
   DB.forEach(cat=>cat.subcategories.forEach(sub=>sub.items.forEach(item=>{
     const s=State.items[item.id];
-    if(s.finding.active){const p=s.finding.priority||'C';F[p].push({cat:cat.label,sub:sub.label,item:item.label,note:s.finding.note,photo:s.finding.photo});}
+    if(s.finding.active){
+      const p=s.finding.priority||'C';
+      F[p].push({
+        cat:cat.label, sub:sub.label, item:item.label,
+        note:s.finding.note, photo:s.finding.photo,
+        cost: parseFloat(s.finding.cost)||0
+      });
+    }
   })));
 
   const chk = (n=10) => { if(y+n>284){doc.addPage();y=22;} };
+
   const drawFooter = () => {
     const pages=doc.getNumberOfPages();
     for(let i=1;i<=pages;i++){
       doc.setPage(i);
-      doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(90,105,120);
-      const disc=doc.splitTextToSize(LEGAL_DISCLAIMER, CW);
-      // footer rule
-      doc.setDrawColor(192,25,44); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
-      doc.setLineWidth(0.2);
+      draw(192,25,44); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
+      setF(6,'normal'); clr(90,105,120);
       doc.text(COMPANY_NAME, M, 290);
       doc.text(`Page ${i} of ${pages}`, W-M, 290, {align:'right'});
     }
   };
 
-  // ── PAGE 1: COVER ────────────────────────────────────────────
-  doc.setFillColor(8,15,28); doc.rect(0,0,210,297,'F');
+  // ── PAGE 1: COVER ─────────────────────────────────────────────
+  fill(8,15,28); doc.rect(0,0,210,297,'F');
 
   // Logo
   let logoBottom = 18;
@@ -1345,166 +1369,373 @@ function downloadPDF() {
       logoBottom = 58;
     } catch(e) {}
   }
-  // Company name
-  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(192,25,44);
-  doc.text(COMPANY_NAME, W/2, logoBottom+6, {align:'center'});
-  // Crimson rule
-  doc.setFillColor(192,25,44); doc.rect(M, logoBottom+10, CW, 1.5, 'F');
 
-  doc.setFontSize(22); doc.setFont('helvetica','bold'); doc.setTextColor(235,242,250);
-  doc.text(I.vessel, W/2, logoBottom+24, {align:'center'});
-  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(130,155,185);
-  doc.text(I.type, W/2, logoBottom+33, {align:'center'});
-  doc.setFontSize(9); doc.setTextColor(100,120,150);
-  doc.text(fmtDate, W/2, logoBottom+40, {align:'center'});
+  // Company name — bold helvetica, crimson, fully visible on dark bg
+  setF(8,'bold'); clr(192,25,44);
+  doc.text(COMPANY_NAME, W/2, logoBottom+7, {align:'center'});
+
+  // Crimson rule
+  fill(192,25,44); doc.rect(M, logoBottom+11, CW, 1.5, 'F');
+
+  // Vessel name — large bold white
+  setF(22,'bold'); clr(235,242,250);
+  doc.text(I.vessel, W/2, logoBottom+26, {align:'center'});
+
+  // Survey type
+  setF(10,'normal'); clr(150,175,205);
+  doc.text(I.type, W/2, logoBottom+36, {align:'center'});
+
+  // Date
+  setF(9,'normal'); clr(120,145,175);
+  doc.text(fmtDate, W/2, logoBottom+44, {align:'center'});
 
   // Vessel photo on cover
-  let photoBottom = logoBottom + 48;
+  let photoBottom = logoBottom + 52;
   if (State.vesselPhoto) {
     try {
-      const ph=State.vesselPhoto;
-      doc.addImage(ph,'JPEG',M,photoBottom,CW,62,undefined,'FAST');
+      doc.addImage(State.vesselPhoto,'JPEG',M,photoBottom,CW,62,undefined,'FAST');
       photoBottom += 66;
     } catch(e) {}
   }
 
-  // Info table on cover — fixed column widths for perfect alignment
-  const COL_KEY  = 42;   // fixed width for the label column
-  const COL_VAL  = M + COL_KEY + 3;  // value always starts at the same x
-  const ROW_H    = 7.5;  // consistent row height
-  const infoRows=[['Surveyor',I.surveyor],['Client',I.client],['HIN / Hull ID',I.hin],
-                  ['Location',I.location],['Weather',I.weather],['Reference',I.ref]];
-  let iy=photoBottom+6;
-  infoRows.forEach(([k,v],rowIdx)=>{
-    // Alternating row tint for easy scanning
+  // ── Info table on cover ───────────────────────────────────────
+  // ROW_H: total row height; TEXT_OFFSET: where baseline sits ABOVE underline
+  const ROW_H       = 8;    // total height of each data row (mm)
+  const TEXT_OFFSET = 5;    // baseline is this far below row top — sits cleanly above the rule
+  const COL_KEY_W   = 44;   // label column width
+  const COL_VAL_X   = M + COL_KEY_W + 2; // value column start X
+
+  const infoRows=[
+    ['VESSEL', I.vessel],
+    ['HIN / HULL ID', I.hin],
+    ['SURVEYOR', I.surveyor],
+    ['CLIENT', I.client],
+    ['LOCATION', I.location],
+    ['WEATHER', I.weather],
+    ['REFERENCE', I.ref],
+  ];
+
+  let iy = photoBottom + 5;
+  infoRows.forEach(([k,v], rowIdx) => {
+    const rowTop = iy;
+    // Alternating row tint
     if (rowIdx % 2 === 0) {
-      doc.setFillColor(14,24,40); doc.rect(M, iy-4, CW, ROW_H, 'F');
+      fill(14,24,40); doc.rect(M, rowTop, CW, ROW_H, 'F');
     }
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(100,125,160);
-    doc.text(k.toUpperCase(), M+3, iy);
-    doc.setFont('helvetica','normal'); doc.setTextColor(210,225,240);
-    const valLines = doc.splitTextToSize(String(v), CW - COL_KEY - 6);
-    doc.text(valLines, COL_VAL, iy);
+    // Label — bold, muted blue
+    setF(7,'bold'); clr(110,135,165);
+    doc.text(k, M+3, rowTop + TEXT_OFFSET);
+    // Value — normal, bright white — split long values
+    setF(7.5,'normal'); clr(220,232,248);
+    const valLines = doc.splitTextToSize(String(v), CW - COL_KEY_W - 6);
+    doc.text(valLines, COL_VAL_X, rowTop + TEXT_OFFSET);
+    // Underline rule BELOW the text
+    draw(28,42,62); doc.setLineWidth(0.2);
+    doc.line(M, rowTop + ROW_H, M + CW, rowTop + ROW_H);
     iy += Math.max(ROW_H, valLines.length * ROW_H);
   });
 
-  // Stats band — balanced 3×2 or 6×1 grid, centred with proper card padding
-  iy += 6;
-  const STATS_ROWS    = 2;
-  const STATS_COLS    = 3;
-  const CARD_W        = CW / STATS_COLS;
-  const CARD_H        = 18;
-  const statsBandH    = STATS_ROWS * CARD_H + 4;
+  // ── Stats band on cover ───────────────────────────────────────
+  iy += 7;
+  const STATS_COLS = 3, STATS_ROWS = 2;
+  const CARD_W = CW / STATS_COLS;
+  const CARD_H = 18;
+  const statsBandH = STATS_ROWS * CARD_H + 4;
 
-  doc.setFillColor(18,28,46);
-  doc.roundedRect(M, iy, CW, statsBandH, 2, 2, 'F');
-  // Accent left bar
-  doc.setFillColor(192,25,44);
-  doc.rect(M, iy, 2.5, statsBandH, 'F');
+  fill(18,28,46); doc.roundedRect(M, iy, CW, statsBandH, 2, 2, 'F');
+  fill(192,25,44); doc.rect(M, iy, 2.5, statsBandH, 'F');
 
   const sts  = [`${pct}%`, `${F.A.length}`, `${F.B.length}`, `${F.C.length}`, `${g.done}`, `${g.na}`];
-  const stl  = ['Complete', 'Pri A',         'Pri B',         'Pri C',         'Done',       'N/A'];
-  const stcl = [
-    [220,230,245], [220,38,38], [215,115,5], [59,130,200], [13,148,84], [100,140,195]
-  ];
+  const stl  = ['Complete','Pri A','Pri B','Pri C','Done','N/A'];
+  const stcl = [[220,230,245],[220,38,38],[215,115,5],[59,130,200],[13,148,84],[100,140,195]];
 
   sts.forEach((v, i) => {
-    const col  = i % STATS_COLS;
-    const row  = Math.floor(i / STATS_COLS);
-    const cx   = M + col * CARD_W + CARD_W / 2;
-    const cy   = iy + row * CARD_H + CARD_H * 0.52;
-
-    // Divider lines between columns (skip first)
+    const col = i % STATS_COLS;
+    const row = Math.floor(i / STATS_COLS);
+    const cx  = M + col * CARD_W + CARD_W / 2;
+    const cy  = iy + row * CARD_H + CARD_H * 0.52;
     if (col > 0) {
-      doc.setDrawColor(30,45,65); doc.setLineWidth(0.3);
-      doc.line(M + col * CARD_W, iy + 2, M + col * CARD_W, iy + statsBandH - 2);
+      draw(30,45,65); doc.setLineWidth(0.3);
+      doc.line(M + col * CARD_W, iy+2, M + col * CARD_W, iy + statsBandH - 2);
     }
-    // Divider between rows
     if (row === 1 && col === 0) {
-      doc.setDrawColor(30,45,65); doc.setLineWidth(0.3);
-      doc.line(M + 3, iy + CARD_H, M + CW, iy + CARD_H);
+      draw(30,45,65); doc.setLineWidth(0.3);
+      doc.line(M+3, iy + CARD_H, M + CW, iy + CARD_H);
     }
-
-    doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(...stcl[i]);
-    doc.text(v, cx, cy, { align:'center' });
-    doc.setFontSize(6);  doc.setFont('helvetica','normal'); doc.setTextColor(100,120,155);
-    doc.text(stl[i], cx, cy + 4.5, { align:'center' });
+    setF(10,'bold');  clr(...stcl[i]); doc.text(v, cx, cy, {align:'center'});
+    setF(6,'normal'); clr(110,130,160); doc.text(stl[i], cx, cy+4.5, {align:'center'});
   });
 
-  // ── PAGE 2: TABLE OF CONTENTS ────────────────────────────────
-  doc.addPage();
-  y=22;
-  doc.setFontSize(14);doc.setFont('helvetica','bold');doc.setTextColor(220,230,245);
-  doc.text('TABLE OF CONTENTS',M,y); y+=6;
-  doc.setFillColor(192,25,44);doc.rect(M,y,CW,1,'F'); y+=7;
+  // ── Cost summary on cover (if any cost items) ─────────────────
+  const allCostItems = getAllCostItems();
+  if (allCostItems.length) {
+    iy += statsBandH + 7;
+    const subtotal = allCostItems.reduce((a,r) => a+r.cost, 0);
+    const taxAmt   = taxSettings.enabled ? subtotal * taxSettings.rate / 100 : 0;
+    const total    = subtotal + taxAmt;
+    const COST_H   = taxSettings.enabled ? 28 : 22;
+    fill(10,18,32); doc.roundedRect(M, iy, CW, COST_H, 2, 2, 'F');
+    fill(13,148,84); doc.rect(M, iy, 2.5, COST_H, 'F');
+    setF(7,'bold'); clr(100,170,120);
+    doc.text('ESTIMATED REPAIR COSTS', M+6, iy+6);
+    setF(7,'normal'); clr(130,160,145);
+    doc.text(`${allCostItems.length} item${allCostItems.length!==1?'s':''} flagged`, M+6, iy+12);
+    if (taxSettings.enabled) {
+      setF(7,'normal'); clr(130,160,145);
+      doc.text(`Subtotal: ${fmt$(subtotal)}`, M+6, iy+17);
+      doc.text(`HST ${taxSettings.rate}%: ${fmt$(taxAmt)}`, M+6, iy+22);
+    }
+    setF(9,'bold'); clr(61,219,145);
+    doc.text(fmt$(total), W-M-3, iy + (taxSettings.enabled?20:12), {align:'right'});
+    setF(6,'normal'); clr(80,120,100);
+    doc.text(taxSettings.enabled?'TOTAL INC. TAX':'SUBTOTAL', W-M-3, iy+(taxSettings.enabled?25:17), {align:'right'});
+  }
+
+  // ── PAGE 2: TABLE OF CONTENTS ─────────────────────────────────
+  doc.addPage(); y=22;
+  setF(14,'bold'); clr(220,232,248);
+  doc.text('TABLE OF CONTENTS', M, y); y+=6;
+  fill(192,25,44); doc.rect(M,y,CW,1,'F'); y+=8;
 
   DB.forEach(cat=>{
     chk(9);
     const st=getStats(catItems(cat));
     const cp=st.total?Math.round(((st.done+st.na)/st.total)*100):0;
-    doc.setFontSize(8.5);doc.setFont('helvetica','normal');doc.setTextColor(200,215,235);
-    doc.text(`${cat.icon}  ${cat.label}`,M,y);
-    doc.setFont('helvetica','bold');doc.setTextColor(cp>=80?[13,148,84]:cp>=40?[215,115,5]:[192,25,44]);
-    doc.text(`${st.done+st.na}/${st.total}  ${cp}%`,W-M,y,{align:'right'});
-    doc.setDrawColor(30,45,65);doc.setLineWidth(0.2);doc.line(M+3,y+1,W-M-18,y+1);
+    const cpClr = cp>=80?[13,148,84]:cp>=40?[215,115,5]:[192,25,44];
+    setF(8.5,'normal'); clr(205,218,238);
+    doc.text(`${cat.icon}  ${cat.label}`, M, y);
+    setF(8.5,'bold'); clr(...cpClr);
+    doc.text(`${st.done+st.na}/${st.total}  ${cp}%`, W-M, y, {align:'right'});
+    draw(30,45,65); doc.setLineWidth(0.2);
+    doc.line(M+3, y+1, W-M-22, y+1);
     y+=8;
   });
 
-  // ── FINDINGS ─────────────────────────────────────────────────
+  // ── PAGE 3: FINDINGS & DEFICIENCIES ───────────────────────────
   doc.addPage(); y=22;
-  doc.setFontSize(12);doc.setFont('helvetica','bold');doc.setTextColor(220,230,245);
-  doc.text('FINDINGS & DEFICIENCIES',M,y); y+=5;
-  doc.setFillColor(192,25,44);doc.rect(M,y,CW,1.2,'F'); y+=7;
+  setF(12,'bold'); clr(220,232,248);
+  doc.text('FINDINGS & DEFICIENCIES', M, y); y+=5;
+  fill(192,25,44); doc.rect(M,y,CW,1.2,'F'); y+=8;
 
   const allF=[...F.A.map(f=>({...f,p:'A'})),...F.B.map(f=>({...f,p:'B'})),...F.C.map(f=>({...f,p:'C'}))];
+
   if(!allF.length){
-    doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(13,148,84);
-    doc.text('No findings or deficiencies were flagged during this inspection.',M,y); y+=10;
+    setF(9,'normal'); clr(13,148,84);
+    doc.text('No findings or deficiencies were flagged during this inspection.', M, y); y+=10;
   } else {
+    // Column layout constants for findings
+    const F_COST_X = W - M - 2;   // cost column right-edge X
+    const F_COST_W = 24;           // reserved width for cost figure
+    const F_TEXT_W = CW - 8 - F_COST_W - 2; // item text wraps within this width
+
     const pc={A:[220,38,38],B:[215,115,5],C:[59,130,200]};
     for(const f of allF){
-      const ph=f.photo; chk(ph?28:20);
+      const ph=f.photo;
+      const hasCost = f.cost > 0;
+      chk(ph ? 28 : 22);
       const col=pc[f.p];
-      doc.setFillColor(...col);doc.rect(M,y,2.5,14,'F');
-      doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...col);
-      doc.text(`PRIORITY ${f.p}`,M+5,y+5);
-      doc.setFontSize(7);doc.setFont('helvetica','normal');doc.setTextColor(100,120,155);
-      doc.text(`${f.cat}  ›  ${f.sub}`,M+5,y+10);
-      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(220,230,245);
-      const il=doc.splitTextToSize(f.item,CW-8);doc.text(il,M+5,y+15);
-      y+=15+il.length*4.5;
-      if(f.note){chk(8);const nl=doc.splitTextToSize(`"${f.note}"`,CW-8);doc.setFontSize(8);doc.setFont('helvetica','italic');doc.setTextColor(175,185,200);doc.text(nl,M+5,y);y+=nl.length*4.5+2;}
-      if(ph){chk(58);try{doc.setFillColor(20,32,52);doc.rect(M,y,CW,54,'F');doc.addImage(ph,'JPEG',M+1,y+1,CW-2,52,undefined,'FAST');y+=56;}catch(e){}}
-      doc.setDrawColor(30,45,65);doc.line(M+3,y+2,M+CW,y+2);y+=7;
+
+      // Left priority bar
+      fill(...col); doc.rect(M, y, 2.5, 16, 'F');
+
+      // Priority label
+      setF(7,'bold'); clr(...col);
+      doc.text(`PRIORITY ${f.p}`, M+5, y+5);
+
+      // Cost figure — right-aligned in findings row, bright white
+      if (hasCost) {
+        setF(8,'bold'); clr(61,219,145);
+        doc.text(fmt$(f.cost), F_COST_X, y+5, {align:'right'});
+      }
+
+      // Category path
+      setF(7,'normal'); clr(100,120,155);
+      doc.text(`${f.cat}  >  ${f.sub}`, M+5, y+11);
+
+      // Item name — wraps within available width, leaves room for cost column
+      setF(9,'bold'); clr(220,232,248);
+      const il = doc.splitTextToSize(f.item, hasCost ? F_TEXT_W : CW-8);
+      doc.text(il, M+5, y+17);
+      y += 17 + il.length * 4.5;
+
+      // Finding note
+      if(f.note){
+        chk(8);
+        const nl=doc.splitTextToSize(`"${f.note}"`, CW-10);
+        setF(8,'italic'); clr(175,188,205);
+        doc.text(nl, M+5, y);
+        y += nl.length*4.5+2;
+      }
+
+      // Finding photo
+      if(ph){
+        chk(58);
+        try{
+          fill(20,32,52); doc.rect(M,y,CW,54,'F');
+          doc.addImage(ph,'JPEG',M+1,y+1,CW-2,52,undefined,'FAST');
+          y+=56;
+        } catch(e){}
+      }
+
+      draw(30,45,65); doc.line(M+3,y+2,M+CW,y+2); y+=7;
     }
   }
 
   // ── DETAILED BREAKDOWN ────────────────────────────────────────
   for(const cat of DB){
     chk(14);
-    doc.setFillColor(8,15,28);doc.rect(M,y,CW,9,'F');
-    doc.setFillColor(192,25,44);doc.rect(M,y,2.5,9,'F');
-    doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(235,242,250);
-    doc.text(`${cat.icon}  ${cat.label.toUpperCase()}`,M+5,y+6);y+=12;
+    fill(8,15,28); doc.rect(M,y,CW,9,'F');
+    fill(192,25,44); doc.rect(M,y,2.5,9,'F');
+    setF(9,'bold'); clr(235,242,250);
+    doc.text(`${cat.icon}  ${cat.label.toUpperCase()}`, M+5, y+6); y+=12;
+
     for(const sub of cat.subcategories){
       chk(9);
-      doc.setFillColor(15,24,40);doc.rect(M,y,CW,7,'F');
-      doc.setFontSize(8);doc.setFont('helvetica','bold');doc.setTextColor(100,140,185);
-      doc.text(sub.label,M+4,y+5);y+=9;
+      fill(15,24,40); doc.rect(M,y,CW,7,'F');
+      setF(8,'bold'); clr(100,140,185);
+      doc.text(sub.label, M+4, y+5); y+=9;
+
       for(const item of sub.items){
         chk(7);
         const s=State.items[item.id];
-        const sl={null:'—',progress:'In Progress',done:'✓',na:'N/A'}[s.status]||'—';
+        const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
         const sc={null:[55,75,100],progress:[215,115,5],done:[13,148,84],na:[80,100,180]}[s.status]||[55,75,100];
-        doc.setFontSize(7);doc.setFont('helvetica','bold');doc.setTextColor(...sc);doc.text(sl,M+2,y+4);
-        doc.setFont('helvetica','normal');doc.setTextColor(200,215,235);
-        const ll=doc.splitTextToSize(item.label,CW-28);doc.text(ll,M+14,y+4);
-        if(s.finding.active){const fc={A:[220,38,38],B:[215,115,5],C:[59,130,200]}[s.finding.priority||'C'];doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...fc);doc.text(`[PRI ${s.finding.priority||'C'}]`,W-M-2,y+4,{align:'right'});}
-        y+=ll.length*4+1;
-        if(s.finding.active&&s.finding.note){chk(6);const nl=doc.splitTextToSize(`↳ ${s.finding.note}`,CW-18);doc.setFont('helvetica','italic');doc.setFontSize(7);doc.setTextColor(140,115,50);doc.text(nl,M+14,y);y+=nl.length*3.5+1;}
-        doc.setDrawColor(22,35,55);doc.line(M+12,y,M+CW,y);y+=2;
-      }y+=3;
-    }y+=4;
+
+        // Status indicator
+        setF(7,'bold'); clr(...sc);
+        doc.text(sl, M+2, y+4.5);
+
+        // Item label
+        setF(7,'normal'); clr(205,218,238);
+        const ll=doc.splitTextToSize(item.label, CW-36);
+        doc.text(ll, M+14, y+4.5);
+
+        // Right side: priority tag + cost if present
+        if(s.finding.active){
+          const fc={A:[220,38,38],B:[215,115,5],C:[59,130,200]}[s.finding.priority||'C'];
+          const hasCost2 = s.finding.cost && parseFloat(s.finding.cost) > 0;
+          if (hasCost2) {
+            setF(7,'bold'); clr(61,219,145);
+            doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
+            setF(7,'bold'); clr(...fc);
+            doc.text(`[P${s.finding.priority||'C'}]`, W-M-2-18, y+4.5, {align:'right'});
+          } else {
+            setF(7,'bold'); clr(...fc);
+            doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'});
+          }
+        }
+        y += ll.length*4+1;
+
+        // Finding note under item
+        if(s.finding.active&&s.finding.note){
+          chk(6);
+          const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
+          setF(7,'italic'); clr(150,130,70);
+          doc.text(nl, M+14, y);
+          y += nl.length*3.5+1;
+        }
+        draw(22,35,55); doc.line(M+12,y,M+CW,y); y+=2;
+      }
+      y+=3;
+    }
+    y+=4;
+  }
+
+  // ── REPAIR COST ESTIMATE PAGE ──────────────────────────────────
+  if (allCostItems.length) {
+    doc.addPage(); y=22;
+    setF(12,'bold'); clr(220,232,248);
+    doc.text('REPAIR COST ESTIMATE', M, y); y+=5;
+    fill(192,25,44); doc.rect(M,y,CW,1.2,'F'); y+=8;
+
+    // Table header
+    const TH = 7; // table header row height
+    fill(12,22,38); doc.rect(M, y, CW, TH, 'F');
+    setF(7,'bold'); clr(100,125,160);
+    doc.text('#',        M+3,           y+5);
+    doc.text('ITEM / DESCRIPTION', M+10, y+5);
+    doc.text('PRI',      M+CW-36,       y+5);
+    doc.text('EST. COST', W-M-2,        y+5, {align:'right'});
+    draw(192,25,44); doc.setLineWidth(0.4);
+    doc.line(M, y+TH, M+CW, y+TH);
+    y += TH + 2;
+
+    allCostItems.forEach((r, i) => {
+      const rowLines = doc.splitTextToSize(r.item, CW - 56);
+      const rowH = Math.max(9, rowLines.length * 4.5 + 4);
+      chk(rowH + 2);
+      if (i % 2 === 0) { fill(10,18,32); doc.rect(M, y, CW, rowH, 'F'); }
+
+      setF(7,'bold'); clr(80,100,140);
+      doc.text(String(i+1), M+3, y+5.5);
+
+      setF(7.5,'bold'); clr(210,225,245);
+      doc.text(rowLines, M+10, y+5.5);
+
+      if (r.note) {
+        const noteY = y + 5.5 + rowLines.length*4.5;
+        setF(7,'italic'); clr(140,155,175);
+        const noteTxt = doc.splitTextToSize(r.note, CW-56);
+        doc.text(noteTxt, M+10, noteY);
+      }
+
+      if (r.priority) {
+        const priClr={A:[220,38,38],B:[215,115,5],C:[59,130,200]}[r.priority]||[100,130,180];
+        setF(7,'bold'); clr(...priClr);
+        doc.text(`P${r.priority}`, M+CW-34, y+5.5);
+      }
+
+      setF(8,'bold'); clr(61,219,145);
+      doc.text(fmt$(r.cost), W-M-2, y+5.5, {align:'right'});
+
+      draw(22,35,55); doc.setLineWidth(0.15);
+      doc.line(M, y+rowH, M+CW, y+rowH);
+      y += rowH;
+    });
+
+    y += 4;
+    const subtotal2 = allCostItems.reduce((a,r)=>a+r.cost,0);
+    const taxAmt2   = taxSettings.enabled ? subtotal2 * taxSettings.rate / 100 : 0;
+    const total2    = subtotal2 + taxAmt2;
+
+    // Subtotal row
+    chk(9);
+    fill(12,22,38); doc.rect(M, y, CW, 8, 'F');
+    setF(8,'bold'); clr(150,165,185);
+    doc.text('SUBTOTAL', M+4, y+5.5);
+    setF(8,'bold'); clr(200,215,235);
+    doc.text(fmt$(subtotal2), W-M-2, y+5.5, {align:'right'});
+    y+=8;
+
+    // Tax row (if enabled)
+    if (taxSettings.enabled) {
+      chk(9);
+      fill(12,22,38); doc.rect(M, y, CW, 8, 'F');
+      setF(8,'normal'); clr(150,165,185);
+      doc.text(`HST / TAX (${taxSettings.rate}%)`, M+4, y+5.5);
+      setF(8,'normal'); clr(180,195,215);
+      doc.text(fmt$(taxAmt2), W-M-2, y+5.5, {align:'right'});
+      y+=8;
+    }
+
+    // Total row — prominent
+    chk(11);
+    fill(8,32,22); doc.rect(M, y, CW, 10, 'F');
+    fill(13,148,84); doc.rect(M, y, 2.5, 10, 'F');
+    draw(13,148,84); doc.setLineWidth(0.4);
+    doc.line(M, y, M+CW, y);
+    setF(9,'bold'); clr(61,219,145);
+    doc.text('TOTAL ESTIMATED REPAIR COST', M+6, y+7);
+    setF(10,'bold'); clr(61,219,145);
+    doc.text(fmt$(total2), W-M-2, y+7, {align:'right'});
+    y+=14;
+
+    // Tax toggle note
+    setF(7,'normal'); clr(80,100,90);
+    const taxNote = taxSettings.enabled
+      ? `Tax calculated at ${taxSettings.rate}% (HST/GST). Toggle in report view to recalculate.`
+      : `Tax not included. Toggle the tax option in the report view to add HST/GST.`;
+    doc.text(taxNote, M, y);
   }
 
   drawFooter();
