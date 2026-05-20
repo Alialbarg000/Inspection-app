@@ -5,44 +5,49 @@
 
 /* ── TOKENS ──────────────────────────────────────────────────── */
 :root {
-  --bg:           #080d14;
-  --surface:      #0d1420;
-  --panel:        #111826;
-  --card:         #161f2e;
-  --card-hi:      #1c2840;
-  --border:       #1e2d44;
-  --border-hi:    #2c3f5c;
+  --bg:           #04070c;
+  --surface:      #04070c;
+  --panel:        #0d1420;
+  --card:         #0d1420;
+  --card-hi:      #111826;
+  --border:       #1a2535;
+  --border-hi:    #243447;
 
-  --text:         #e2e8f0;
-  --text-bright:  #f0f5fa;
+  --text:         #f4f1eb;
+  --text-bright:  #f4f1eb;
   --text-mid:     #a8bdd4;
   --text-dim:     #5a7490;
   --text-faint:   #2a3d52;
 
-  --accent:       #c0192c;
-  --accent-lo:    rgba(192,25,44,.13);
-  --accent-glow:  rgba(192,25,44,.32);
+  --accent:       #d4af37;
+  --accent-lo:    rgba(212,175,55,.13);
+  --accent-glow:  rgba(212,175,55,.32);
 
+  /* Pass — Muted Sage Green */
+  --s-done-bg:    rgba(90,120,80,.18);
+  --s-done-bd:    #6b8f5e;
+  --s-done-tx:    #a8c49a;
+  --s-done-glow:  rgba(90,120,80,.35);
+
+  /* Pending — Muted Dusk Blue */
+  --s-prog-bg:    rgba(70,95,140,.18);
+  --s-prog-bd:    #4e6a96;
+  --s-prog-tx:    #8aabd4;
+  --s-prog-glow:  rgba(70,95,140,.40);
+
+  /* None/Skipped — unchanged neutral */
   --s-none-bg:    #1e2d42;
   --s-none-bd:    #2e4160;
   --s-none-tx:    #7a9ab8;
 
-  --s-prog-bg:    rgba(195,110,0,.18);
-  --s-prog-bd:    #c97200;
-  --s-prog-tx:    #ffb84d;
-  --s-prog-glow:  rgba(201,114,0,.40);
-
-  --s-done-bg:    rgba(13,148,84,.18);
-  --s-done-bd:    #0d9454;
-  --s-done-tx:    #3ddb8f;
-  --s-done-glow:  rgba(13,148,84,.35);
-
+  /* N/A — unchanged */
   --s-na-bg:      rgba(80,100,200,.15);
   --s-na-bd:      #5068c8;
   --s-na-tx:      #8fa8f8;
   --s-na-glow:    rgba(80,100,200,.35);
 
-  --pa:    #e53535;  --pa-bg: rgba(229,53,53,.13);
+  /* Fail — Muted Terracotta/Clay Red */
+  --pa:    #b85c45;  --pa-bg: rgba(184,92,69,.13);
   --pb:    #d97706;  --pb-bg: rgba(217,119,6,.11);
   --pc:    #2563eb;  --pc-bg: rgba(37,99,235,.11);
 
