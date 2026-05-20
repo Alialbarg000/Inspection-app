@@ -45,6 +45,9 @@ async function checkAccessGate() {
 function hideAccessGate() {
   const gate = document.getElementById('access-gate');
   if (gate) gate.style.display = 'none';
+  // Restore all saved progress immediately after the gate passes
+  loadAllProgress();
+  refreshAll();
 }
 
 async function verifyAccessKey() {
@@ -797,6 +800,7 @@ function cycleStatus(itemId) {
   if (newSt === 'progress') { s.finding.active = true; openNoteTray(itemId); }
   else if (Nav.noteTrayOpen && _currentTrayId === itemId) closeNoteTray();
   refreshAll();
+  saveAllProgress();
 }
 
 function toggleFinding(itemId) {
@@ -808,6 +812,7 @@ function toggleFinding(itemId) {
     f.active=true; openNoteTray(itemId);
   }
   refreshAll();
+  saveAllProgress();
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -853,6 +858,7 @@ function closeNoteTray() {
 function saveTray() {
   if (!_currentTrayId) return;
   State.items[_currentTrayId].finding.note = $('tray-note').value;
+  saveAllProgress();
 }
 
 function setTrayPriority(pri) {
@@ -861,6 +867,7 @@ function setTrayPriority(pri) {
   f.priority = f.priority === pri ? null : pri;
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.pri === f.priority));
+  saveAllProgress();
 }
 
 // ── Photo ──────────────────────────────────────────────────────
@@ -1863,6 +1870,7 @@ function saveTaxSettings() {
 }
 function setItemCost(itemId, val) {
   if (State.items[itemId]) State.items[itemId].finding.cost = val;
+  saveAllProgress();
 }
 
 function renderCostField(itemId) {
@@ -1932,6 +1940,93 @@ function buildCostPage() {
 
 function toggleReportTax(enabled) { taxSettings.enabled=enabled; saveTaxSettings(); buildReport(); }
 function updateTaxRate(val)        { taxSettings.rate=parseFloat(val)||13; saveTaxSettings(); }
+
+// ───────────────────────────────────────────────────────────────
+// §24  CHECKLIST AUTOSAVE ENGINE
+// ───────────────────────────────────────────────────────────────
+const DRAFT_LS_KEY = 'sansoon_survey_draft';
+
+function saveAllProgress() {
+  const draft = {};
+
+  // 1. Splash-screen vessel form fields (inputs, selects, textareas)
+  const FIELD_IDS = [
+    'v-name','v-hin','v-ref','v-surveyor','v-client',
+    'v-date','v-type','v-location','v-weather','v-scope'
+  ];
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) draft[id] = el.value;
+  });
+
+  // 2. All item statuses + findings from State
+  draft.__itemStates = {};
+  Object.keys(State.items).forEach(itemId => {
+    const s = State.items[itemId];
+    draft.__itemStates[itemId] = {
+      status:   s.status,
+      finding: {
+        active:   s.finding.active,
+        note:     s.finding.note,
+        priority: s.finding.priority,
+        photo:    s.finding.photo,
+        cost:     s.finding.cost,
+      }
+    };
+  });
+
+  try {
+    localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(draft));
+  } catch(e) {}
+}
+
+function loadAllProgress() {
+  let draft;
+  try {
+    const raw = localStorage.getItem(DRAFT_LS_KEY);
+    if (!raw) return;
+    draft = JSON.parse(raw);
+  } catch(e) { return; }
+
+  // 1. Restore splash form fields
+  const FIELD_IDS = [
+    'v-name','v-hin','v-ref','v-surveyor','v-client',
+    'v-date','v-type','v-location','v-weather','v-scope'
+  ];
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && draft[id] !== undefined) el.value = draft[id];
+  });
+
+  // 2. Restore item states + findings into State
+  if (draft.__itemStates) {
+    Object.keys(draft.__itemStates).forEach(itemId => {
+      if (!State.items[itemId]) return;
+      const saved = draft.__itemStates[itemId];
+      State.items[itemId].status           = saved.status;
+      State.items[itemId].finding.active   = saved.finding.active;
+      State.items[itemId].finding.note     = saved.finding.note;
+      State.items[itemId].finding.priority = saved.finding.priority;
+      State.items[itemId].finding.photo    = saved.finding.photo;
+      State.items[itemId].finding.cost     = saved.finding.cost;
+    });
+  }
+}
+
+function attachAutosaveListeners() {
+  // Watch splash form fields
+  const FIELD_IDS = [
+    'v-name','v-hin','v-ref','v-surveyor','v-client',
+    'v-date','v-type','v-location','v-weather','v-scope'
+  ];
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const evt = (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'checkbox')
+      ? 'change' : 'input';
+    el.addEventListener(evt, saveAllProgress);
+  });
+}
 
 // ───────────────────────────────────────────────────────────────
 // §21  CUSTOM SECTIONS & ITEMS
@@ -2225,6 +2320,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Prevent search results from blocking back btn
   const _sr = $('global-search-results');
   if (_sr) _sr.addEventListener('pointerdown', e => e.stopPropagation());
+
+  attachAutosaveListeners();
 
   showView('splash');
   renderCategoryBar();
