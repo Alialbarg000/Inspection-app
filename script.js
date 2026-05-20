@@ -1339,39 +1339,115 @@ async function buildReport() {
     </div>`;
   }).join('');
 
-  const detail = DB.map(cat => {
-    const cst = getStats(catItems(cat));
-    const cp  = cst.total ? Math.round(((cst.done+cst.na)/cst.total)*100) : 0;
-    return `<div class="rpt-cat">
-      <div class="rpt-cat-hdr" style="border-left:4px solid var(--accent)">
-        <span>${cat.icon} ${cat.label}</span>
-        <div>
-          ${cst.findings ? `<span class="rpt-fflag">${cst.findings} Findings</span>` : ''}
-          <span class="rpt-cpct">${cp}%</span>
-        </div>
-      </div>
-      ${cat.subcategories.map(sub => `
-        <div class="rpt-sub">
-          <div class="rpt-sub-hdr">${sub.label}</div>
-          <table class="rpt-tbl">
-            <thead><tr><th>Inspection Item</th><th>Status</th><th>Finding</th><th>Notes</th></tr></thead>
-            <tbody>${sub.items.map(item => {
-              const s  = State.items[item.id];
+  const includeAll = document.getElementById('pdf-include-all') && document.getElementById('pdf-include-all').checked;
+
+  const detail = (() => {
+    // appendixItems accumulates findings cards for the compressed-mode appendix
+    const appendixItems = [];
+
+    const catBlocks = DB.map(cat => {
+      const cst = getStats(catItems(cat));
+      const cp  = cst.total ? Math.round(((cst.done+cst.na)/cst.total)*100) : 0;
+
+      const subBlocks = cat.subcategories.map(sub => {
+        if (includeAll) {
+          // ── FULL mode: render every item row exactly as before ──────
+          const rows = sub.items.map(item => {
+            const s  = State.items[item.id];
+            const sl = {null:'—',progress:'In Progress',done:'Completed',na:'N/A'}[s.status]||'—';
+            const sc = {null:'rpt-s-none',progress:'rpt-s-prog',done:'rpt-s-done',na:'rpt-s-na'}[s.status]||'rpt-s-none';
+            const ft = s.finding.active ? `<span class="rpt-ftag p${(s.finding.priority||'C').toLowerCase()}">Pri ${s.finding.priority||'C'}</span>` : '';
+            const ph = s.finding.active && s.finding.photo ? `<br><img src="${s.finding.photo}" class="rpt-inline-thumb" alt="photo">` : '';
+            return `<tr>
+              <td>${item.label}</td>
+              <td><span class="rpt-stag ${sc}">${sl}</span></td>
+              <td>${ft}</td>
+              <td class="rpt-note-cell">${s.finding.active && s.finding.note ? s.finding.note : ''}${ph}</td>
+            </tr>`;
+          }).join('');
+          return `<div class="rpt-sub">
+            <div class="rpt-sub-hdr">${sub.label}</div>
+            <table class="rpt-tbl">
+              <thead><tr><th>Inspection Item</th><th>Status</th><th>Finding</th><th>Notes</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+        } else {
+          // ── COMPRESSED mode ─────────────────────────────────────────
+          const satNames   = [];  // satisfactory / done / na, no finding
+          const findingRows = []; // in-progress or flagged findings (shown inline)
+
+          sub.items.forEach(item => {
+            const s = State.items[item.id];
+            const isSat = (s.status === 'done' || s.status === 'na') && !s.finding.active;
+            if (isSat) {
+              satNames.push(item.label);
+            } else {
+              // Collect for inline display if they have actionable status
               const sl = {null:'—',progress:'In Progress',done:'Completed',na:'N/A'}[s.status]||'—';
               const sc = {null:'rpt-s-none',progress:'rpt-s-prog',done:'rpt-s-done',na:'rpt-s-na'}[s.status]||'rpt-s-none';
               const ft = s.finding.active ? `<span class="rpt-ftag p${(s.finding.priority||'C').toLowerCase()}">Pri ${s.finding.priority||'C'}</span>` : '';
-              const ph = s.finding.active && s.finding.photo ? `<br><img src="${s.finding.photo}" class="rpt-inline-thumb" alt="photo">` : '';
-              return `<tr>
+              findingRows.push(`<tr>
                 <td>${item.label}</td>
                 <td><span class="rpt-stag ${sc}">${sl}</span></td>
                 <td>${ft}</td>
-                <td class="rpt-note-cell">${s.finding.active && s.finding.note ? s.finding.note : ''}${ph}</td>
-              </tr>`;
-            }).join('')}</tbody>
-          </table>
-        </div>`).join('')}
-    </div>`;
-  }).join('');
+                <td class="rpt-note-cell">${s.finding.active && s.finding.note ? s.finding.note : ''}</td>
+              </tr>`);
+              // Push items with photos/notes/priority to appendix
+              if (s.finding.active && (s.finding.photo || s.finding.note || s.finding.priority)) {
+                appendixItems.push({
+                  cat: cat.label, sub: sub.label, item: item.label,
+                  note: s.finding.note, photo: s.finding.photo,
+                  priority: s.finding.priority
+                });
+              }
+            }
+          });
+
+          const satBlock = satNames.length
+            ? `<div class="rpt-sat-block"><strong>✓ Found Satisfactory:</strong> ${satNames.join(', ')}.</div>`
+            : '';
+          const tableBlock = findingRows.length
+            ? `<table class="rpt-tbl">
+                <thead><tr><th>Inspection Item</th><th>Status</th><th>Finding</th><th>Notes</th></tr></thead>
+                <tbody>${findingRows.join('')}</tbody>
+               </table>`
+            : '';
+
+          return `<div class="rpt-sub">
+            <div class="rpt-sub-hdr">${sub.label}</div>
+            ${satBlock}${tableBlock}
+          </div>`;
+        }
+      }).join('');
+
+      return `<div class="rpt-cat">
+        <div class="rpt-cat-hdr" style="border-left:4px solid var(--accent)">
+          <span>${cat.icon} ${cat.label}</span>
+          <div>
+            ${cst.findings ? `<span class="rpt-fflag">${cst.findings} Findings</span>` : ''}
+            <span class="rpt-cpct">${cp}%</span>
+          </div>
+        </div>
+        ${subBlocks}
+      </div>`;
+    }).join('');
+
+    // ── Appendix section (compressed mode only) ──────────────────
+    const appendix = (!includeAll && appendixItems.length) ? `
+      <div class="rpt-sec-title">📎 Findings &amp; Photos Appendix</div>
+      <div class="rpt-appendix-grid">
+        ${appendixItems.map(f => `
+          <div class="rpt-appendix-card">
+            ${f.photo ? `<img src="${f.photo}" class="rpt-photo-img" alt="Finding photo">` : ''}
+            <div class="apx-path">${f.cat} › ${f.sub}</div>
+            <div class="apx-item">${f.item}${f.priority ? ` <span class="rpt-ftag p${f.priority.toLowerCase()}">Pri ${f.priority}</span>` : ''}</div>
+            ${f.note ? `<div class="apx-note">"${f.note}"</div>` : ''}
+          </div>`).join('')}
+      </div>` : '';
+
+    return catBlocks + appendix;
+  })();
 
   const logoSrc = (COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64 !== 'PLACEHOLDER_LOGO_BASE64')
     ? `<img src="data:image/jpeg;base64,${COMPANY_LOGO_BASE64}" class="rpt-logo-img" alt="${COMPANY_NAME}">`
