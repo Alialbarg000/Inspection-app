@@ -1246,9 +1246,12 @@ select.f-input { cursor: pointer; }
     box-sizing: border-box;
   }
 
-  /* ── FIX 2: Vertical catalog cards — hide horizontal scroll strip ── */
+    /* ── FIX 2: Mobile category bar — keep it visible as horizontal scroll ── */
   .catbar {
-    display: none !important;
+    display: flex !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
   }
   .catbar-wrapper {
     position: static;
