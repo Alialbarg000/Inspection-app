@@ -34,6 +34,51 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     SURVEYOR PROFILE MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="surveyor-profile-modal" class="access-gate" style="display:none;">
+  <div class="ag-card">
+    <div class="ag-logo">⚓</div>
+    <div class="ag-title">Surveyor <strong>Profile</strong></div>
+    <div class="ag-sub">Set up your profile to continue</div>
+    <div class="ag-input-wrap">
+      <label class="f-label" for="sp-name" style="display:block;text-align:left;margin-bottom:4px;color:#94a3b8;font-size:12px;">Surveyor Full Name *</label>
+      <input id="sp-name" class="ag-input" type="text"
+        placeholder="Full name" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="ag-input-wrap" style="margin-top:12px;">
+      <label class="f-label" for="sp-email" style="display:block;text-align:left;margin-bottom:4px;color:#94a3b8;font-size:12px;">Surveyor Email *</label>
+      <input id="sp-email" class="ag-input" type="email"
+        placeholder="email@example.com" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="sp-error" class="ag-error" style="display:none;"></div>
+    <button id="sp-save-btn" class="ag-btn">
+      <span>Save &amp; Continue</span>
+    </button>
+    <div class="ag-footer">Sansoon Yacht Services — Authorized Personnel Only</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COMPLETE CONFIRM MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="complete-confirm-modal" class="access-gate" style="display:none;z-index:3000;">
+  <div class="ag-card">
+    <div class="ag-logo" style="font-size:32px;">✅</div>
+    <div class="ag-title">Finish <strong>Survey</strong></div>
+    <div class="ag-sub">Are you sure you finished your survey?</div>
+    <div style="display:flex;gap:12px;margin-top:20px;justify-content:center;">
+      <button id="complete-yes-btn" class="ag-btn" style="background:#10b981;">
+        <span>Yes, Mark Complete</span>
+      </button>
+      <button id="complete-no-btn" class="ag-btn" style="background:#475569;">
+        <span>No, Go Back</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- ═══════════════════════════════════════════════════════════
@@ -114,9 +159,26 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
+       DASHBOARD PANEL
+  ═══════════════════════════════════════════════════════════ -->
+  <div id="dashboard-panel" style="display:none;">
+    <div class="hub-header">
+      <div class="hub-title" id="dashboard-welcome">⚓ Welcome</div>
+      <div class="hub-subtitle">Your saved surveys and projects.</div>
+    </div>
+    <div style="padding:0 24px 24px;max-width:1200px;margin:0 auto;">
+      <button class="cta-btn go" id="btn-start-new-survey" style="margin-bottom:24px;">
+        Start New Survey
+        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <div id="dashboard-projects-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
        SPLASH — VESSEL INTAKE FORM
   ═══════════════════════════════════════════════════════════ -->
-  <div id="splash" style="display:flex;">
+  <div id="splash" style="display:none;">
     <div class="splash-inner">
 
       <div class="splash-hero">
@@ -195,6 +257,8 @@
             <input class="f-input" id="v-weather" type="text" placeholder="e.g. Calm, 12 kts SW, partly cloudy" autocomplete="off">
           </div>
 
+          <input type="hidden" id="v-project-id">
+
           <div class="intake-field full vessel-photo-upload">
             <label class="f-label">Main Vessel Photo (appears on report cover)</label>
             <button class="photo-upload-btn" onclick="document.getElementById('vessel-photo-input').click()">
@@ -262,9 +326,9 @@
         <span class="rpt-toggle-track"><span class="rpt-toggle-thumb"></span></span>
         <span class="rpt-toggle-text">Include All Items in PDF</span>
       </label>
-      <button class="tb-btn" onclick="window.print()">
-        <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Print
+      <button class="tb-btn" id="btn-view-pdf">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        View Report as PDF
       </button>
       <button class="tb-btn" id="btn-refresh-rpt">
         <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
@@ -275,7 +339,8 @@
         Back to Survey
       </button>
     </div>
-    <div id="report-body"></div>
+    <div id="pdf-watermark" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;pointer-events:none;z-index:0;font-size:120px;font-weight:700;color:#0f172a;white-space:nowrap;">⚓ Sansoon</div>
+    <div id="report-body" style="position:relative;z-index:1;"></div>
   </div>
 
 </div><!-- /.app -->
@@ -319,19 +384,15 @@
       <textarea id="tray-note"
         placeholder="Describe the finding — location, severity, recommended action…&#10;&#10;Press Enter to save &amp; close."
       ></textarea>
-      <div id="tray-chip-suggestion" class="tray-chip-suggestion"></div>
       <button id="rephrase-btn" class="rephrase-btn">✨ Rephrase Note (Professional)</button>
-      <button id="qi-save-btn">💾 Add to Quick Insert Options</button>
     </div>
 
-    <div id="tray-cost-field"></div>
-
-    <div class="qi-section">
-      <div class="qi-title">Quick Insert Options</div>
-      <div class="qi-list" id="qi-list">
-        <div class="qi-empty">No saved phrases yet. Type a note and click 💾 to save it here.</div>
+    <details class="tray-extras">
+      <summary class="tray-extras-summary">Extras ▾</summary>
+      <div class="tray-extras-content">
+        <div id="tray-cost-field"></div>
       </div>
-    </div>
+    </details>
 
     <div class="tray-hint">
       <kbd>Enter</kbd> save &amp; close &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> new line &nbsp;·&nbsp; <kbd>Esc</kbd> back
