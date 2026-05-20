@@ -549,18 +549,36 @@ select.f-input { cursor: pointer; }
 }
 #tray-overlay.visible { opacity: 1; pointer-events: auto; }
 
+/* MOBILE BASE — full-screen drawer, no centering, no fixed widths */
 #note-tray {
   position: fixed; right: 0; top: 0; bottom: 0;
-  width: var(--tray-w); z-index: 400;
+  width: 100vw; z-index: 400;
   background: linear-gradient(180deg, #0e1926 0%, #0b1420 100%);
-  border-left: 1px solid var(--border-hi);
+  border-left: none;
   border-top: 3px solid var(--accent);
   box-shadow: -8px 0 48px rgba(0,0,0,.75);
   display: flex; flex-direction: column;
   transform: translateX(100%);
   transition: transform .28s cubic-bezier(.4,0,.2,1);
+  border-radius: 0;
+  max-height: none;
 }
 #note-tray.open { transform: translateX(0); }
+
+/* DESKTOP ONLY — centered modal styles locked behind 1024px */
+@media (min-width: 1024px) {
+  #note-tray {
+    right: 0; top: 0; bottom: 0;
+    width: var(--tray-w);
+    border-left: 1px solid var(--border-hi);
+    border-radius: 0;
+    max-height: none;
+    /* Remove any accidental centering wrapper behavior: */
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+}
 
 /* ── DESKTOP MODAL OVERRIDE (≥ 1024px) ───────────────────────── */
 @media (min-width: 1024px) {
