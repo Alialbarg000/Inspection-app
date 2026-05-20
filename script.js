@@ -12,9 +12,33 @@ const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPZtNfJjxw_HUzdYG5b';
 const _SB      = supabase.createClient(_SB_URL, _SB_KEY);
 const AG_LS    = 'sansoon_access_token_v1';
 
+const AG_EXPIRES_LS = 'sansoon_key_expires_at';
+
 async function checkAccessGate() {
-  const saved = localStorage.getItem(AG_LS);
-  if (saved) { hideAccessGate(); return; }
+  const saved   = localStorage.getItem(AG_LS);
+  const expires = localStorage.getItem(AG_EXPIRES_LS);
+
+  if (saved) {
+    if (expires && Date.now() > parseInt(expires, 10)) {
+      localStorage.clear();
+      document.getElementById('access-gate').style.display = 'flex';
+      showAgError('This access key has expired.');
+      return;
+    }
+    hideAccessGate();
+    if (expires) {
+      const remaining = parseInt(expires, 10) - Date.now();
+      if (remaining > 0) {
+        setTimeout(() => {
+          localStorage.clear();
+          document.getElementById('access-gate').style.display = 'flex';
+          showAgError('This access key has expired.');
+        }, remaining);
+      }
+    }
+    return;
+  }
+
   document.getElementById('access-gate').style.display = 'flex';
 }
 
@@ -44,8 +68,23 @@ async function verifyAccessKey() {
     if (error || !data) {
       showAgError('Invalid access key. Please try again.');
     } else {
+      let expiresAt = null;
+      if (key === 'TEST-1HOUR') {
+        expiresAt = Date.now() + (1 * 60 * 60 * 1000);
+      }
       localStorage.setItem(AG_LS, key);
+      if (expiresAt !== null) {
+        localStorage.setItem(AG_EXPIRES_LS, expiresAt.toString());
+      }
       hideAccessGate();
+      if (expiresAt !== null) {
+        const remaining = expiresAt - Date.now();
+        setTimeout(() => {
+          localStorage.clear();
+          document.getElementById('access-gate').style.display = 'flex';
+          showAgError('This access key has expired.');
+        }, remaining);
+      }
     }
   } catch (e) {
     showAgError('Network error. Check your connection and retry.');
