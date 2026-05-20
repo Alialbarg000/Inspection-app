@@ -1732,3 +1732,655 @@ select.f-input { cursor: pointer; }
 @media (max-width: 480px) {
   .ag-card { padding: 36px 24px 28px; }
 }
+
+
+/* ================================================================
+   NEW STYLES — Dashboard, Modal Tray, Watermark, Confirm, Animations
+   Added 2026-05-20
+================================================================ */
+
+/* ── 1. DASHBOARD STYLES ─────────────────────────────────────── */
+
+.dashboard-panel {
+  display: none; /* toggled by JS */
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px 80px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+}
+.dashboard-panel::-webkit-scrollbar { width: 5px; }
+.dashboard-panel::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-hi);
+}
+
+.dashboard-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dashboard-welcome h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: .3px;
+}
+
+.dashboard-welcome p {
+  font-size: 15px;
+  color: var(--text-mid);
+}
+
+.dashboard-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 24px;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  transition: var(--tr);
+  box-shadow: 0 2px 16px var(--accent-glow);
+  min-height: 50px;
+  white-space: nowrap;
+}
+.dashboard-cta:hover { filter: brightness(1.1); }
+.dashboard-cta svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.project-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all var(--tr);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.project-card:hover {
+  background: var(--card-hi);
+  border-color: var(--border-hi);
+  box-shadow: 0 4px 24px rgba(0,0,0,.45);
+  transform: translateY(-2px);
+}
+
+.project-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-card-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1.4;
+}
+
+.project-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.project-card-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.project-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.project-progress-track {
+  flex: 1;
+  height: 5px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.project-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, #e8560c 45%, #0d9454 100%);
+  border-radius: 2px;
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+
+.project-status-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.project-status-badge.completed {
+  background: var(--s-done-bg);
+  color: var(--s-done-tx);
+  border-color: var(--s-done-bd);
+}
+.project-status-badge.in-progress {
+  background: rgba(217,119,6,.13);
+  color: #f0a855;
+  border-color: #c27a1a;
+}
+.project-status-badge.draft {
+  background: rgba(255,255,255,.04);
+  color: var(--text-dim);
+  border-color: var(--border-hi);
+}
+
+/* ── 2. NOTE TRAY → CENTERED MODAL (Desktop & Tablet ≥601px) ── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 395;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .28s ease;
+}
+.modal-backdrop.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Desktop/Tablet: centered modal */
+@media (min-width: 601px) {
+  #note-tray {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%) scale(0.96);
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
+    border-left: none;
+    border-top: 3px solid var(--accent);
+    border-radius: var(--r-lg);
+    box-shadow: 0 24px 80px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.04);
+    transition: transform .28s cubic-bezier(.4,0,.2,1), opacity .28s ease;
+    opacity: 0;
+    pointer-events: none;
+  }
+  #note-tray.open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #tray-overlay {
+    display: none; /* use .modal-backdrop instead on desktop */
+  }
+}
+
+/* Mobile: keep right-side slide (≤600px) */
+@media (max-width: 600px) {
+  .modal-backdrop { display: none; }
+  #tray-overlay { display: block; }
+}
+
+/* ── 3. EXTRAS SECTION IN NOTE TRAY ───────────────────────── */
+
+.extras-section {
+  border-top: 1px solid var(--border-hi);
+  margin-top: 4px;
+}
+
+.extras-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: color var(--tr);
+  -webkit-tap-highlight-color: transparent;
+}
+.extras-toggle:hover { color: var(--text-mid); }
+.extras-toggle::after {
+  content: '▸';
+  font-size: 13px;
+  transition: transform .2s ease;
+  margin-left: 6px;
+}
+.extras-section.open .extras-toggle::after {
+  transform: rotate(90deg);
+}
+
+.extras-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .3s cubic-bezier(.4,0,.2,1), padding .3s ease;
+  padding: 0;
+}
+.extras-section.open .extras-body {
+  max-height: 400px;
+  padding: 0 0 12px;
+}
+
+.extras-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.extras-field:last-child { margin-bottom: 0; }
+
+.extras-field-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-mid);
+}
+
+.extras-input {
+  background: var(--panel);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r);
+  padding: 10px 13px;
+  color: var(--text-bright);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  outline: none;
+  transition: var(--tr);
+  min-height: 44px;
+  width: 100%;
+}
+.extras-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-lo);
+}
+.extras-input::placeholder { color: var(--text-faint); }
+
+/* ── 4. WATERMARK FOR PDF PREVIEW ──────────────────────────── */
+
+.pdf-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 700;
+  color: var(--text-bright);
+  opacity: 0.08;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 10;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* ── 5. CONFIRMATION MODAL ─────────────────────────────────── */
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+  background: rgba(0,0,0,.60);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+.confirm-modal.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.confirm-card {
+  background: var(--card);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r-lg);
+  border-top: 3px solid var(--accent);
+  box-shadow: 0 24px 64px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.04);
+  padding: 32px 28px 28px;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  text-align: center;
+  transform: scale(0.94);
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+}
+.confirm-modal.visible .confirm-card {
+  transform: scale(1);
+}
+
+.confirm-icon {
+  font-size: 36px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.confirm-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  letter-spacing: .3px;
+}
+
+.confirm-message {
+  font-size: 15px;
+  color: var(--text-mid);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 24px;
+  border-radius: var(--r);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid;
+  cursor: pointer;
+  transition: var(--tr);
+  min-height: 48px;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.confirm-btn.yes {
+  background: var(--pa);
+  color: #fff;
+  border-color: var(--pa);
+  box-shadow: 0 2px 12px rgba(184,92,69,.35);
+}
+.confirm-btn.yes:hover {
+  background: #c96a52;
+  border-color: #c96a52;
+}
+
+.confirm-btn.no {
+  background: transparent;
+  color: var(--text-mid);
+  border-color: var(--border-hi);
+}
+.confirm-btn.no:hover {
+  background: var(--card-hi);
+  color: var(--text-bright);
+  border-color: var(--border-hi);
+}
+
+/* ── 6. ANIMATIONS ─────────────────────────────────────────── */
+
+@keyframes modal-pop-in {
+  from {
+    transform: translate(-50%, -50%) scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes section-card-enter {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-modal {
+  animation: modal-pop-in .32s cubic-bezier(.4,0,.2,1) forwards;
+}
+
+.animate-section-enter {
+  animation: section-card-enter .45s cubic-bezier(.4,0,.2,1) forwards;
+  opacity: 0; /* start hidden, animation reveals */
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up .35s cubic-bezier(.4,0,.2,1) forwards;
+  opacity: 0;
+}
+
+/* Stagger delay support via inline style or nth-child */
+.animate-section-enter:nth-child(1) { animation-delay: 0ms; }
+.animate-section-enter:nth-child(2) { animation-delay: 60ms; }
+.animate-section-enter:nth-child(3) { animation-delay: 120ms; }
+.animate-section-enter:nth-child(4) { animation-delay: 180ms; }
+.animate-section-enter:nth-child(5) { animation-delay: 240ms; }
+.animate-section-enter:nth-child(6) { animation-delay: 300ms; }
+.animate-section-enter:nth-child(7) { animation-delay: 360ms; }
+.animate-section-enter:nth-child(8) { animation-delay: 420ms; }
+
+/* Apply to hub cards */
+.hub-card.animate-section-enter {
+  animation-duration: .5s;
+}
+
+/* ── 7. REMOVE/MINIMIZE UNUSED STYLES ──────────────────────── */
+
+/* Chip styles — minimized, kept for backward compat but hidden from active use */
+.chip-prefix { display: none; }
+.chip-insert { display: none; }
+
+/* Quick-inspect (qi) styles — minimized */
+.qi-section { display: none; }
+.qi-list    { display: none; }
+.qi-row     { display: none; }
+.qi-title   { display: none; }
+.qi-empty   { display: none; }
+.qi-text    { display: none; }
+.qi-del     { display: none; }
+#qi-save-btn { display: none; }
+
+/* Updated tray-body for modal form factor */
+.tray-body {
+  flex: 1;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-hi) transparent;
+}
+
+/* ── 8. RESPONSIVE ─────────────────────────────────────────── */
+
+/* Dashboard grid breakpoints */
+@media (min-width: 601px) and (max-width: 1023px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .dashboard-panel {
+    padding: 20px 16px 70px;
+  }
+  .dashboard-welcome h2 {
+    font-size: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .dashboard-panel {
+    padding: 28px 36px 100px;
+  }
+  .dashboard-welcome h2 {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-panel {
+    padding: 14px 10px 60px;
+  }
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .dashboard-welcome h2 {
+    font-size: 22px;
+  }
+  .dashboard-cta {
+    width: 100%;
+    justify-content: center;
+  }
+  .project-card {
+    padding: 18px 16px;
+  }
+  .confirm-card {
+    padding: 24px 18px 22px;
+    max-width: 340px;
+  }
+  .confirm-actions {
+    flex-direction: column;
+  }
+  .confirm-btn {
+    width: 100%;
+  }
+}
+
+/* Modal sizing per breakpoint */
+@media (min-width: 601px) and (max-width: 1023px) {
+  #note-tray {
+    max-width: 520px;
+    max-height: 88vh;
+  }
+}
+
+@media (min-width: 1024px) {
+  #note-tray {
+    max-width: 560px;
+    max-height: 85vh;
+  }
+}
+
+@media (max-width: 600px) {
+  #note-tray {
+    width: var(--tray-w);
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    border-top: 3px solid var(--accent);
+    transform: translateX(100%);
+    top: 0; left: auto; right: 0; bottom: 0;
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #note-tray.open {
+    transform: translateX(0);
+  }
+  .tray-body {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+}
+
+/* Watermark responsive */
+@media (max-width: 600px) {
+  .pdf-watermark {
+    font-size: 48px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .pdf-watermark {
+    font-size: 84px;
+  }
+}
+
+/* ── 9. PRINT (watermark hidden) ───────────────────────────── */
+@media print {
+  .pdf-watermark { display: none !important; }
+  .dashboard-panel { display: none !important; }
+  .modal-backdrop { display: none !important; }
+  .confirm-modal { display: none !important; }
+}
