@@ -2028,77 +2028,7 @@ function buildCostPage() {
 function toggleReportTax(enabled) { taxSettings.enabled=enabled; saveTaxSettings(); buildReport(); }
 function updateTaxRate(val)        { taxSettings.rate=parseFloat(val)||13; saveTaxSettings(); }
 
-// ───────────────────────────────────────────────────────────────
-// §24  CHECKLIST AUTOSAVE ENGINE
-// ───────────────────────────────────────────────────────────────
-const DRAFT_LS_KEY = 'sansoon_survey_draft';
 
-function saveAllProgress() {
-  const draft = {};
-
-  // 1. Splash-screen vessel form fields (inputs, selects, textareas)
-  const FIELD_IDS = [
-    'v-name','v-hin','v-ref','v-surveyor','v-client',
-    'v-date','v-type','v-location','v-weather','v-scope'
-  ];
-  FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) draft[id] = el.value;
-  });
-
-  // 2. All item statuses + findings from State
-  draft.__itemStates = {};
-  Object.keys(State.items).forEach(itemId => {
-    const s = State.items[itemId];
-    draft.__itemStates[itemId] = {
-      status:   s.status,
-      finding: {
-        active:   s.finding.active,
-        note:     s.finding.note,
-        priority: s.finding.priority,
-        photo:    s.finding.photo,
-        cost:     s.finding.cost,
-      }
-    };
-  });
-
-  try {
-    localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(draft));
-  } catch(e) {}
-}
-
-function loadAllProgress() {
-  let draft;
-  try {
-    const raw = localStorage.getItem(DRAFT_LS_KEY);
-    if (!raw) return;
-    draft = JSON.parse(raw);
-  } catch(e) { return; }
-
-  // 1. Restore splash form fields
-  const FIELD_IDS = [
-    'v-name','v-hin','v-ref','v-surveyor','v-client',
-    'v-date','v-type','v-location','v-weather','v-scope'
-  ];
-  FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el && draft[id] !== undefined) el.value = draft[id];
-  });
-
-  // 2. Restore item states + findings into State
-  if (draft.__itemStates) {
-    Object.keys(draft.__itemStates).forEach(itemId => {
-      if (!State.items[itemId]) return;
-      const saved = draft.__itemStates[itemId];
-      State.items[itemId].status           = saved.status;
-      State.items[itemId].finding.active   = saved.finding.active;
-      State.items[itemId].finding.note     = saved.finding.note;
-      State.items[itemId].finding.priority = saved.finding.priority;
-      State.items[itemId].finding.photo    = saved.finding.photo;
-      State.items[itemId].finding.cost     = saved.finding.cost;
-    });
-  }
-}
 
 function attachAutosaveListeners() {
   // Watch splash form fields
