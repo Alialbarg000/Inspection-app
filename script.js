@@ -1386,6 +1386,7 @@ function buildReport() {
       try { _screenVesselSrc = await loadPhotoIDB(State.vesselPhoto); } catch(e) {}
     }
   }
+  
   $('report-body').innerHTML = `
     <div class="rpt-cover">
       <div class="rpt-cvr-top">
