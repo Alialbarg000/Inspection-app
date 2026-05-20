@@ -4,14 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#080d14">
+<meta name="theme-color" content="#0f172a">
 <title>Sansoon Yacht Services — Marine Survey Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
 
@@ -42,7 +41,6 @@
   ═══════════════════════════════════════════════════════════ -->
   <header class="topbar">
 
-    <!-- Mobile-only: collapsed search icon button -->
     <button id="mobile-search-btn" class="mobile-search-btn" title="Search" aria-label="Open search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round">
@@ -50,14 +48,12 @@
       </svg>
     </button>
 
-    <!-- Search bar — always visible tablet+; toggled on mobile -->
     <div class="search-wrap" id="search-wrap">
       <input id="global-search-input" class="global-search" type="search"
         placeholder="🔍 Search checklist items..." autocomplete="off" spellcheck="false">
       <div id="global-search-results" class="search-results" style="display:none"></div>
     </div>
 
-    <!-- Hub grid button (shown by JS when inside a category checklist) -->
     <button id="hub-btn" title="Return to Survey Hub" style="display:none;">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -66,7 +62,6 @@
       </svg>
     </button>
 
-    <!-- Back button -->
     <button id="back-btn" title="Go back one level (Esc)">
       <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       Back
