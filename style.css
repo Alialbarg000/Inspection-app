@@ -248,6 +248,39 @@ body {
 .catbar::-webkit-scrollbar { display: none; }
 .catbar.dragging { cursor: grabbing; user-select: none; }
 
+/* ── CATBAR WRAPPER + SCROLL ARROW OVERLAYS ──────────────────── */
+.catbar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+/* The .catbar itself stays sticky via its own rule;
+   the wrapper is the relative anchor for the arrows */
+.catbar-wrapper .catbar {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 200;
+}
+.catbar-scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 210;
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 48px;
+  border: none; border-radius: 0;
+  cursor: pointer;
+  font-size: 26px; font-weight: 700; line-height: 1;
+  color: var(--text-bright);
+  background: linear-gradient(to right, rgba(8,13,20,.92) 60%, rgba(8,13,20,0));
+  transition: color var(--tr), background var(--tr);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  pointer-events: all;
+}
+.catbar-scroll-left  { left: 0;  background: linear-gradient(to right,  rgba(8,13,20,.92) 55%, rgba(8,13,20,0)); }
+.catbar-scroll-right { right: 0; background: linear-gradient(to left,   rgba(8,13,20,.92) 55%, rgba(8,13,20,0)); }
+.catbar-scroll-btn:hover { color: var(--accent); }
+
 .catbar-inner {
   display: inline-flex; align-items: center;
   padding: 10px 18px; gap: 8px; min-width: min-content;
