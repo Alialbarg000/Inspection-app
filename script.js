@@ -2320,9 +2320,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Restore saved draft (overwrites initState defaults if a draft exists) ──
   const _hadDraft = loadAllProgress();
-  if (_hadDraft) {
-    showToast('Draft restored ✓');
-  }
+  // FIX: Silent auto-restore — pop-up notification removed so navigation is uninterrupted
+  // if (_hadDraft) {
+  //   showToast('Draft restored ✓');
+  // }
 
   // ── Autosave: targeted input listeners on intake form only ──
   // (No broad container listeners — these were causing the infinite loop)
