@@ -8,7 +8,7 @@
 // §0  SUPABASE — ACCESS GATE
 // ───────────────────────────────────────────────────────────────
 const _SB_URL  = 'https://xbqcagwzrqxgzwqiifpr.supabase.co';
-const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPztNfJjxw_HUzdyWb9R6N7KxT4G';
+const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPZtNfJjxw_HUzdYG5b';
 const _SB      = supabase.createClient(_SB_URL, _SB_KEY);
 const AG_LS    = 'sansoon_access_token_v1';
 
