@@ -11,311 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
-<style>
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD STYLES — Horizon UI inspired
-   ═══════════════════════════════════════════════════════════ */
 
-.db-header {
-  background: linear-gradient(135deg, #0d1420 0%, #111827 100%);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-  padding: 28px 24px 20px;
-}
-.db-header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.db-header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.db-header-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-}
-.db-header-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  color: #f8fafc;
-  letter-spacing: 0.3px;
-  line-height: 1.1;
-}
-.db-header-subtitle {
-  font-size: 13px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-/* Stats Row */
-.db-stats-row {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px 24px 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
-}
-.db-stat-card {
-  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 12px;
-  padding: 18px 20px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.db-stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-.db-stat-value {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 32px;
-  font-weight: 700;
-  color: #fbbf24;
-  line-height: 1;
-  margin-bottom: 6px;
-}
-.db-stat-label {
-  font-size: 12px;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
-}
-
-/* Container */
-.db-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-}
-.db-section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.db-section-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  color: #e2e8f0;
-}
-.db-section-subtitle {
-  font-size: 13px;
-  color: #64748b;
-}
-
-/* Projects Grid */
-.db-projects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 18px;
-}
-
-/* Project Card */
-.db-project-card {
-  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 12px;
-  padding: 20px 22px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  position: relative;
-  overflow: hidden;
-}
-.db-project-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-.db-project-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
-  border-color: rgba(251, 191, 36, 0.2);
-}
-.db-project-card:hover::before {
-  opacity: 1;
-}
-
-.db-project-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  gap: 10px;
-}
-.db-project-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-.db-project-status.active {
-  background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-.db-project-status.completed {
-  background: rgba(16, 185, 129, 0.12);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-.db-project-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.db-project-name {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 20px;
-  font-weight: 600;
-  color: #f1f5f9;
-  margin-bottom: 4px;
-  line-height: 1.2;
-}
-.db-project-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.db-project-meta-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: #94a3b8;
-}
-.db-project-meta-item svg {
-  width: 13px;
-  height: 13px;
-  color: #64748b;
-}
-
-/* Progress Bar */
-.db-project-progress-wrap {
-  margin-bottom: 16px;
-}
-.db-project-progress-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #64748b;
-  margin-bottom: 6px;
-}
-.db-project-progress-track {
-  height: 6px;
-  background: rgba(148, 163, 184, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.db-project-progress-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
-  transition: width 0.5s ease;
-  min-width: 4px;
-}
-
-/* Card Actions */
-.db-project-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.db-project-actions .tb-btn {
-  flex: 1;
-  min-width: 100px;
-  font-size: 12px;
-  padding: 8px 12px;
-}
-.db-project-actions .tb-btn.danger {
-  flex: 0 0 auto;
-  min-width: 36px;
-  padding: 8px;
-}
-
-/* Empty State */
-.db-empty-state {
-  text-align: center;
-  padding: 60px 24px;
-  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
-  border: 1px solid rgba(148, 163, 184, 0.08);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-}
-.db-empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-  opacity: 0.6;
-}
-.db-empty-title {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 22px;
-  font-weight: 600;
-  color: #e2e8f0;
-  margin-bottom: 6px;
-}
-.db-empty-text {
-  font-size: 14px;
-  color: #64748b;
-  margin-bottom: 8px;
-}
-
-/* Hub header adjustment for dashboard button */
-.hub-header-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-  .db-projects-grid {
-    grid-template-columns: 1fr;
-  }
-  .db-stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .db-header-inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>
 </head>
 <body>
 
@@ -348,12 +44,12 @@
     <div class="ag-title">Surveyor <strong>Profile</strong></div>
     <div class="ag-sub">Set up your profile to continue</div>
     <div class="ag-input-wrap">
-      <label class="f-label" for="sp-name" style="display:block;text-align:left;margin-bottom:4px;color:#94a3b8;font-size:12px;">Surveyor Full Name *</label>
+      <label class="f-label" for="sp-name">Surveyor Full Name *</label>
       <input id="sp-name" class="ag-input" type="text"
         placeholder="Full name" autocomplete="off" spellcheck="false">
     </div>
     <div class="ag-input-wrap" style="margin-top:12px;">
-      <label class="f-label" for="sp-email" style="display:block;text-align:left;margin-bottom:4px;color:#94a3b8;font-size:12px;">Surveyor Email *</label>
+      <label class="f-label" for="sp-email">Surveyor Email *</label>
       <input id="sp-email" class="ag-input" type="email"
         placeholder="email@example.com" autocomplete="off" spellcheck="false">
     </div>
@@ -485,7 +181,7 @@
             <div class="db-header-subtitle" id="dashboard-welcome">⚓ Welcome</div>
           </div>
         </div>
-        <button class="tb-btn primary" id="btn-start-new-survey">
+        <button class="tb-btn primary" id="btn-start-new-survey" onclick="goToNewSurvey()">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -526,7 +222,7 @@
         <div class="db-empty-icon">📋</div>
         <div class="db-empty-title">No surveys yet</div>
         <div class="db-empty-text">Start your first vessel inspection to see it here.</div>
-        <button class="cta-btn go" id="btn-empty-new-survey" style="margin-top:16px;">
+        <button class="cta-btn go" id="btn-empty-new-survey" style="margin-top:16px;" onclick="goToNewSurvey()">
           Start New Survey
           <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
@@ -789,6 +485,346 @@
   <span id="toast-msg"></span>
 </div>
 
-<script src="script.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   SANSOON SURVEY PRO — CORE LOGIC
+   ═══════════════════════════════════════════════════════════ */
+
+// ── Profile & Initialization ──
+const PROFILE_KEY = 'sansoon_surveyor_profile';
+
+function getSurveyorProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveSurveyorProfile(name, email) {
+  const profile = { name: name.trim(), email: email.trim(), createdAt: new Date().toISOString() };
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  return profile;
+}
+
+function updateDashboardWelcome() {
+  const profile = getSurveyorProfile();
+  const welcomeEl = document.getElementById('dashboard-welcome');
+  if (welcomeEl && profile && profile.name) {
+    welcomeEl.textContent = `⚓ Welcome, ${profile.name}`;
+  }
+}
+
+function showPanel(panelId) {
+  // Hide all main panels
+  const panels = ['dashboard-panel', 'splash', 'hub-panel', 'work-area', 'report-panel'];
+  panels.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Show requested panel
+  const target = document.getElementById(panelId);
+  if (target) {
+    target.style.display = panelId === 'work-area' ? 'flex' : 'flex';
+    if (panelId === 'dashboard-panel') {
+      target.style.display = 'flex';
+      target.style.flexDirection = 'column';
+    }
+  }
+}
+
+function goToNewSurvey() {
+  showPanel('splash');
+}
+
+function goToDashboard() {
+  showPanel('dashboard-panel');
+  updateDashboardWelcome();
+  renderDashboard();
+}
+
+// ── Surveyor Profile Modal Logic ──
+function initSurveyorProfileModal() {
+  const modal = document.getElementById('surveyor-profile-modal');
+  const nameInput = document.getElementById('sp-name');
+  const emailInput = document.getElementById('sp-email');
+  const saveBtn = document.getElementById('sp-save-btn');
+  const errorEl = document.getElementById('sp-error');
+
+  if (!modal || !saveBtn) return;
+
+  saveBtn.addEventListener('click', function() {
+    const name = nameInput.value.trim();
+    const email = emailInput.value.trim();
+
+    if (!name) {
+      errorEl.textContent = 'Please enter your full name.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    if (!email || !email.includes('@')) {
+      errorEl.textContent = 'Please enter a valid email address.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    saveSurveyorProfile(name, email);
+    errorEl.style.display = 'none';
+    modal.style.display = 'none';
+
+    // Show dashboard after saving profile
+    goToDashboard();
+  });
+
+  // Allow Enter key to submit
+  [nameInput, emailInput].forEach(input => {
+    if (input) {
+      input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') saveBtn.click();
+      });
+    }
+  });
+}
+
+// ── Access Gate Logic ──
+function initAccessGate() {
+  const gate = document.getElementById('access-gate');
+  const keyInput = document.getElementById('ag-key-input');
+  const verifyBtn = document.getElementById('ag-verify-btn');
+  const errorEl = document.getElementById('ag-error');
+
+  if (!gate) return;
+
+  // Check if profile exists — if so, skip access gate and show dashboard
+  const profile = getSurveyorProfile();
+  if (profile && profile.name) {
+    gate.style.display = 'none';
+    goToDashboard();
+    return;
+  }
+
+  verifyBtn.addEventListener('click', function() {
+    const key = keyInput.value.trim();
+    // Simple demo key check — replace with your actual validation
+    if (key.length >= 4) {
+      gate.style.display = 'none';
+      // Show profile modal after access gate
+      const profileModal = document.getElementById('surveyor-profile-modal');
+      if (profileModal) {
+        profileModal.style.display = 'flex';
+      }
+    } else {
+      errorEl.textContent = 'Invalid access key.';
+      errorEl.style.display = 'block';
+    }
+  });
+
+  keyInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') verifyBtn.click();
+  });
+}
+
+// ── Dashboard Rendering ──
+function renderDashboard() {
+  const projectsList = document.getElementById('dashboard-projects-list');
+  const emptyState = document.getElementById('dashboard-empty-state');
+  const projectCount = document.getElementById('db-project-count');
+  const statTotal = document.getElementById('db-stat-total');
+  const statActive = document.getElementById('db-stat-active');
+  const statCompleted = document.getElementById('db-stat-completed');
+  const statFindings = document.getElementById('db-stat-findings');
+
+  // Load projects from localStorage
+  let projects = [];
+  try {
+    const raw = localStorage.getItem('sansoon_projects');
+    if (raw) projects = JSON.parse(raw);
+  } catch (e) { /* ignore */ }
+
+  // Update stats
+  const total = projects.length;
+  const active = projects.filter(p => p.status === 'active').length;
+  const completed = projects.filter(p => p.status === 'completed').length;
+  const findings = projects.reduce((sum, p) => sum + (p.findings || 0), 0);
+
+  if (statTotal) statTotal.textContent = total;
+  if (statActive) statActive.textContent = active;
+  if (statCompleted) statCompleted.textContent = completed;
+  if (statFindings) statFindings.textContent = findings;
+  if (projectCount) projectCount.textContent = `${total} project${total !== 1 ? 's' : ''}`;
+
+  // Show empty state or projects
+  if (total === 0) {
+    if (projectsList) projectsList.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+  } else {
+    if (emptyState) emptyState.style.display = 'none';
+    if (projectsList) {
+      projectsList.style.display = 'grid';
+      projectsList.innerHTML = projects.map(p => `
+        <div class="db-project-card">
+          <div class="db-project-card-header">
+            <div>
+              <div class="db-project-name">${escapeHtml(p.vesselName || 'Unnamed Vessel')}</div>
+              <div class="db-project-meta">
+                <span class="db-project-meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  ${p.surveyDate || 'No date'}
+                </span>
+                <span class="db-project-meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  ${p.surveyorName || 'Unknown'}
+                </span>
+              </div>
+            </div>
+            <span class="db-project-status ${p.status === 'completed' ? 'completed' : 'active'}">
+              <span class="db-project-status-dot"></span>
+              ${p.status === 'completed' ? 'Completed' : 'In Progress'}
+            </span>
+          </div>
+          <div class="db-project-progress-wrap">
+            <div class="db-project-progress-label">
+              <span>Progress</span>
+              <span>${p.progress || 0}%</span>
+            </div>
+            <div class="db-project-progress-track">
+              <div class="db-project-progress-fill" style="width: ${p.progress || 0}%"></div>
+            </div>
+          </div>
+          <div class="db-project-actions">
+            <button class="tb-btn" onclick="loadProject('${p.id}')">Open</button>
+            <button class="tb-btn" onclick="generateReport('${p.id}')">Report</button>
+            <button class="tb-btn danger" onclick="deleteProject('${p.id}')" title="Delete">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ── Placeholder functions for project actions ──
+function loadProject(id) {
+  showToast('Loading project...');
+  // Implement project loading logic here
+}
+
+function generateReport(id) {
+  showToast('Generating report...');
+  // Implement report generation logic here
+}
+
+function deleteProject(id) {
+  if (!confirm('Delete this project? This cannot be undone.')) return;
+  let projects = [];
+  try {
+    const raw = localStorage.getItem('sansoon_projects');
+    if (raw) projects = JSON.parse(raw);
+  } catch (e) { }
+  projects = projects.filter(p => p.id !== id);
+  localStorage.setItem('sansoon_projects', JSON.stringify(projects));
+  renderDashboard();
+  showToast('Project deleted');
+}
+
+// ── Toast ──
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toast-msg');
+  if (toast && toastMsg) {
+    toastMsg.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 3000);
+  }
+}
+
+// ── Dashboard Button in Top Bar ──
+function initDashboardButton() {
+  const btnDashboard = document.getElementById('btn-dashboard');
+  if (btnDashboard) {
+    btnDashboard.addEventListener('click', goToDashboard);
+    btnDashboard.style.display = 'inline-flex';
+  }
+
+  const btnHubDashboard = document.getElementById('btn-hub-dashboard');
+  if (btnHubDashboard) {
+    btnHubDashboard.addEventListener('click', goToDashboard);
+  }
+}
+
+// ── Splash / Intake Form ──
+function initSplashForm() {
+  const btnStart = document.getElementById('btn-start');
+  if (btnStart) {
+    btnStart.addEventListener('click', function() {
+      const vesselName = document.getElementById('v-name').value.trim();
+      const surveyorName = document.getElementById('v-surveyor').value.trim();
+      const surveyDate = document.getElementById('v-date').value;
+
+      if (!vesselName) {
+        showToast('Please enter a vessel name');
+        return;
+      }
+      if (!surveyorName) {
+        showToast('Please enter surveyor name');
+        return;
+      }
+      if (!surveyDate) {
+        showToast('Please select a survey date');
+        return;
+      }
+
+      // Create new project
+      const project = {
+        id: 'proj_' + Date.now(),
+        vesselName: vesselName,
+        hin: document.getElementById('v-hin').value.trim(),
+        ref: document.getElementById('v-ref').value.trim(),
+        surveyorName: surveyorName,
+        clientName: document.getElementById('v-client').value.trim(),
+        surveyDate: surveyDate,
+        surveyType: document.getElementById('v-type').value,
+        location: document.getElementById('v-location').value.trim(),
+        weather: document.getElementById('v-weather').value.trim(),
+        scope: document.getElementById('v-scope').value.trim(),
+        status: 'active',
+        progress: 0,
+        findings: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      let projects = [];
+      try {
+        const raw = localStorage.getItem('sansoon_projects');
+        if (raw) projects = JSON.parse(raw);
+      } catch (e) { }
+      projects.push(project);
+      localStorage.setItem('sansoon_projects', JSON.stringify(projects));
+
+      // Set current project and go to hub
+      localStorage.setItem('sansoon_current_project', project.id);
+      showPanel('hub-panel');
+      showToast('Survey started: ' + vesselName);
+    });
+  }
+}
+
+// ── Initialize on DOM Ready ──
+document.addEventListener('DOMContentLoaded', function() {
+  initAccessGate();
+  initSurveyorProfileModal();
+  initDashboardButton();
+  initSplashForm();
+});
+</script>
 </body>
 </html>

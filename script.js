@@ -163,15 +163,65 @@ function renderDashboard() {
   const dash = document.getElementById('dashboard-panel');
   if (!dash) return;
 
+  // Update dashboard welcome text
+  const welcomeEl = document.getElementById('dashboard-welcome');
+  if (welcomeEl) {
+    try {
+      const profile = JSON.parse(localStorage.getItem(PROFILE_LS_KEY) || '{}');
+      if (profile.name) {
+        welcomeEl.textContent = 'Welcome back, ' + profile.name;
+      } else {
+        welcomeEl.textContent = 'Dashboard';
+      }
+    } catch (e) {
+      welcomeEl.textContent = 'Dashboard';
+    }
+  }
+
   loadProjects().then(projects => {
+    // ── DASHBOARD STATS ───────────────────────────────────────
+    const totalSurveys = projects.length;
+    const activeSurveys = projects.filter(p => p.status === 'in-progress').length;
+    const completedSurveys = projects.filter(p => p.status === 'completed').length;
+    let totalFindings = 0;
+    projects.forEach(p => {
+      try {
+        const data = JSON.parse(p.data || '{}');
+        if (data.items) {
+          Object.values(data.items).forEach(item => {
+            if (item.finding && item.finding.active) totalFindings++;
+          });
+        }
+      } catch (e) {}
+    });
+
+    // Update stats row
+    const statTotal = document.querySelector('.db-stat-value[data-stat="total"]');
+    const statActive = document.querySelector('.db-stat-value[data-stat="active"]');
+    const statCompleted = document.querySelector('.db-stat-value[data-stat="completed"]');
+    const statFindings = document.querySelector('.db-stat-value[data-stat="findings"]');
+    if (statTotal) statTotal.textContent = totalSurveys;
+    if (statActive) statActive.textContent = activeSurveys;
+    if (statCompleted) statCompleted.textContent = completedSurveys;
+    if (statFindings) statFindings.textContent = totalFindings;
+    // ───────────────────────────────────────────────────────────
+
     if (!projects.length) {
-      dash.innerHTML = `
-        <div class="dash-empty">
-          <div style="font-size:48px;margin-bottom:16px">📂</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No Projects Yet</div>
-          <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Start a new survey to create your first project.</div>
-          <button onclick="showView('splash')" class="dash-new-btn">Start New Survey</button>
-        </div>`;
+      const listContainer = document.getElementById('dashboard-projects-list');
+      if (listContainer) {
+        listContainer.innerHTML = `
+          <div class="dash-empty">
+            <div style="font-size:48px;margin-bottom:16px">📂</div>
+            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No Projects Yet</div>
+            <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Start a new survey to create your first project.</div>
+            <button id="btn-empty-new-survey" class="dash-new-btn">Start New Survey</button>
+          </div>`;
+        // Wire up the empty state button
+        const emptyBtn = document.getElementById('btn-empty-new-survey');
+        if (emptyBtn) {
+          emptyBtn.addEventListener('click', startNewSurvey);
+        }
+      }
       return;
     }
 
@@ -205,12 +255,47 @@ function renderDashboard() {
       dash.innerHTML = `
         <div class="dash-header">
           <h2 style="margin:0;font-size:20px;color:var(--text)">📂 Projects</h2>
-          <button onclick="showView('splash')" class="dash-new-btn">+ New Survey</button>
+          <button id="btn-start-new-survey" class="dash-new-btn">+ New Survey</button>
         </div>
         <div class="dash-grid">${cards}</div>
       `;
+      // Wire up the new survey button
+      const newBtn = document.getElementById('btn-start-new-survey');
+      if (newBtn) {
+        newBtn.addEventListener('click', startNewSurvey);
+      }
     }
   });
+}
+
+// ── Start a new survey from dashboard ─────────────────────────
+function startNewSurvey() {
+  // Reset intake form fields
+  const fieldIds = ['v-name','v-hin','v-ref','v-surveyor','v-client','v-date','v-type','v-location','v-weather','v-scope'];
+  fieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (id === 'v-date') {
+        el.valueAsDate = new Date();
+      } else if (id === 'v-surveyor') {
+        // Keep surveyor name from profile
+        try {
+          const profile = JSON.parse(localStorage.getItem(PROFILE_LS_KEY) || '{}');
+          el.value = profile.name || '';
+        } catch (e) { el.value = ''; }
+      } else {
+        el.value = '';
+      }
+    }
+  });
+  // Reset state for new survey
+  _currentProjectId = null;
+  State.vesselPhoto = null;
+  initState();
+  updateVesselPhotoPreview();
+  // Set nav stack so back button returns to dashboard
+  Nav.stack = ['dashboard', 'splash'];
+  showView('splash');
 }
 
 async function loadProjectAndContinue(id) {
@@ -264,21 +349,26 @@ function showSurveyorProfileModal() {
       <div style="font-size:32px;margin-bottom:12px">👤</div>
       <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Surveyor Profile</div>
       <div style="font-size:13px;color:var(--text-dim);margin-bottom:24px">Enter your details to auto-fill reports.</div>
-      <input type="text" id="profile-name" placeholder="Full Name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:12px;box-sizing:border-box;">
-      <input type="email" id="profile-email" placeholder="Email Address" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:20px;box-sizing:border-box;">
+      <input type="text" id="sp-name" placeholder="Full Name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+      <input type="email" id="sp-email" placeholder="Email Address" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:20px;box-sizing:border-box;">
       <button id="profile-save-btn" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600;">Save Profile</button>
     </div>`;
   document.body.appendChild(overlay);
 
   document.getElementById('profile-save-btn').addEventListener('click', () => {
-    const name = document.getElementById('profile-name').value.trim();
-    const email = document.getElementById('profile-email').value.trim();
+    const nameInput = document.getElementById('sp-name');
+    const emailInput = document.getElementById('sp-email');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
     if (!name) { showToast('Please enter your name'); return; }
     localStorage.setItem(PROFILE_LS_KEY, JSON.stringify({ name, email, createdAt: Date.now() }));
     const el = document.getElementById('v-surveyor');
     if (el) el.value = name;
     overlay.remove();
     showToast('Profile saved');
+    // After saving profile, go to dashboard
+    renderDashboard();
+    showView('dashboard');
   });
 }
 
@@ -918,7 +1008,11 @@ const Nav = {
       renderDashboard();
       return;
     }
-    if (this.current() === 'dashboard') { showBackToSplashConfirm(); return; }
+    if (this.current() === 'dashboard') {
+      // On dashboard, show exit confirmation instead of going back to splash
+      showExitAppConfirm();
+      return;
+    }
     if (this.stack.length > 1) this.stack.pop();
     showView(this.stack[this.stack.length - 1]);
   },
@@ -939,10 +1033,45 @@ window.addEventListener('popstate', () => {
     Nav.stack.pop();
     showView(Nav.stack[Nav.stack.length - 1]);
     refreshAll();
+  } else if (Nav.current() === 'dashboard') {
+    // Don't navigate away from dashboard on popstate, just push state back
+    history.pushState({ appNav: true, depth: Nav.stack.length }, '');
   } else {
     Nav.back();
   }
 });
+
+function showExitAppConfirm() {
+  const old = document.getElementById('nav-confirm-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'nav-confirm-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);';
+  box.innerHTML =
+    '<div style="font-size:28px;margin-bottom:12px">🚪</div>' +
+    '<div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Exit App?</div>' +
+    '<div style="font-size:13px;color:var(--text-dim);margin-bottom:24px">Are you sure you want to exit? Your projects are safely saved.</div>' +
+    '<div style="display:flex;gap:12px;justify-content:center;">' +
+      '<button id="nav-confirm-cancel" style="flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;">Stay</button>' +
+      '<button id="nav-confirm-yes"    style="flex:1;padding:10px 0;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600;">Exit</button>' +
+    '</div>';
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  document.getElementById('nav-confirm-yes').addEventListener('click', () => {
+    overlay.remove();
+    // Close the app/tab
+    window.close();
+    // Fallback: show splash if window.close() doesn't work
+    Nav.stack = ['splash'];
+    showView('splash');
+  });
+  document.getElementById('nav-confirm-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  const esc = e => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } };
+  document.addEventListener('keydown', esc);
+}
 
 function showBackToSplashConfirm() {
   const old = document.getElementById('nav-confirm-overlay');
@@ -977,6 +1106,13 @@ function showBackToSplashConfirm() {
 function updateBackBtn() {
   const btn = document.getElementById('back-btn');
   if (!btn) return;
+  // On dashboard, hide back button (no going back to splash)
+  if (Nav.current() === 'dashboard') {
+    btn.style.display = 'none';
+    const hubBtn = document.getElementById('hub-btn');
+    if (hubBtn) hubBtn.style.display = 'none';
+    return;
+  }
   const show = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
   btn.style.display = show ? 'inline-flex' : 'none';
   const hubBtn = document.getElementById('hub-btn');
@@ -3028,9 +3164,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const _sr = $('global-search-results');
   if (_sr) _sr.addEventListener('pointerdown', e => e.stopPropagation());
 
-    showView('splash');
-  renderCategoryBar();
-  renderProgress();
-  refreshAll();
-  history.replaceState({ appNav: true, depth: 1 }, '');
-});
+    // ── DASHBOARD FIRST FLOW ────────────────────────────────────
+    // Check if surveyor profile exists and access gate is passed
+    const hasProfile = localStorage.getItem(PROFILE_LS_KEY);
+    const gatePassed = document.getElementById('access-gate') && 
+                       document.getElementById('access-gate').style.display === 'none';
+
+    if (hasProfile && gatePassed) {
+      // Profile exists and gate passed → show dashboard
+      Nav.stack = ['dashboard'];
+      showView('dashboard');
+      renderDashboard();
+    } else if (!hasProfile && gatePassed) {
+      // Gate passed but no profile → show profile modal (it will redirect to dashboard after save)
+      showSurveyorProfileModal();
+    } else {
+      // Access gate still showing or no profile
+      showView('splash');
+      renderCategoryBar();
+      renderProgress();
+      refreshAll();
+    }
+    history.replaceState({ appNav: true, depth: Nav.stack.length }, '');
+  });
