@@ -1852,8 +1852,33 @@ function enableInlineEdit(itemId, labelEl) {
   };
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => {
-    if (e.key==='Enter') { e.preventDefault(); commit(); }
-    if (e.key==='Escape') { input.value=current; input.blur(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // ── INLINE SMART DELETE: empty input + Enter removes the item ──
+      if (input.value.trim() === '') {
+        input.blur(); // prevent commit fallback
+        // Remove from every subcategory items array in DB
+        DB.forEach(cat => cat.subcategories.forEach(sub => {
+          const idx = sub.items.findIndex(it => it.id === itemId);
+          if (idx !== -1) sub.items.splice(idx, 1);
+        }));
+        // Remove from customSections if present
+        customSections.forEach(cs => {
+          const idx = cs.items.findIndex(it => it.id === itemId);
+          if (idx !== -1) cs.items.splice(idx, 1);
+        });
+        saveCustomSections();
+        delete State.items[itemId];
+        buildSearchIndex();
+        document.activeElement?.blur();
+        renderAccordion();
+        appendAddItemButton(Nav.activeCategory);
+        showToast('Item deleted');
+        return;
+      }
+      commit();
+    }
+    if (e.key === 'Escape') { input.value = current; input.blur(); }
   });
 }
 
@@ -2020,7 +2045,16 @@ document.addEventListener('DOMContentLoaded', () => {
   $('vessel-photo-input').addEventListener('change', function() { handleVesselPhoto(this); });
 
   // Drag scroll on catbar
-  enableDragScroll(document.querySelector('.catbar'));
+  const _catbar = document.querySelector('.catbar');
+  enableDragScroll(_catbar);
+
+  // ── CATBAR SCROLL ARROW BUTTONS ───────────────────────────────
+  const _catScrollLeft  = $('catbar-scroll-left');
+  const _catScrollRight = $('catbar-scroll-right');
+  if (_catScrollLeft && _catbar)
+    _catScrollLeft.addEventListener('click', () => _catbar.scrollBy({ left: -250, behavior: 'smooth' }));
+  if (_catScrollRight && _catbar)
+    _catScrollRight.addEventListener('click', () => _catbar.scrollBy({ left: 250, behavior: 'smooth' }));
 
   // Search
   initSearchBar();
