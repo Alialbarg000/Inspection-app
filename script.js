@@ -163,7 +163,7 @@ function renderDashboard() {
   const dash = document.getElementById('dashboard-panel');
   if (!dash) return;
 
-  // Update dashboard welcome text
+  // Update welcome text with surveyor name
   const welcomeEl = document.getElementById('dashboard-welcome');
   if (welcomeEl) {
     try {
@@ -171,15 +171,15 @@ function renderDashboard() {
       if (profile.name) {
         welcomeEl.textContent = 'Welcome back, ' + profile.name;
       } else {
-        welcomeEl.textContent = 'Dashboard';
+        welcomeEl.textContent = 'Welcome aboard';
       }
     } catch (e) {
-      welcomeEl.textContent = 'Dashboard';
+      welcomeEl.textContent = 'Welcome aboard';
     }
   }
 
   loadProjects().then(projects => {
-    // ── DASHBOARD STATS ───────────────────────────────────────
+    // ── STATS ─────────────────────────────────────────────────
     const totalSurveys = projects.length;
     const activeSurveys = projects.filter(p => p.status === 'in-progress').length;
     const completedSurveys = projects.filter(p => p.status === 'completed').length;
@@ -195,77 +195,116 @@ function renderDashboard() {
       } catch (e) {}
     });
 
-    // Update stats row
-    const statTotal = document.querySelector('.db-stat-value[data-stat="total"]');
-    const statActive = document.querySelector('.db-stat-value[data-stat="active"]');
-    const statCompleted = document.querySelector('.db-stat-value[data-stat="completed"]');
-    const statFindings = document.querySelector('.db-stat-value[data-stat="findings"]');
+    // Update stat numbers
+    const statTotal = document.getElementById('db-stat-total');
+    const statActive = document.getElementById('db-stat-active');
+    const statCompleted = document.getElementById('db-stat-completed');
+    const statFindings = document.getElementById('db-stat-findings');
     if (statTotal) statTotal.textContent = totalSurveys;
     if (statActive) statActive.textContent = activeSurveys;
     if (statCompleted) statCompleted.textContent = completedSurveys;
     if (statFindings) statFindings.textContent = totalFindings;
     // ───────────────────────────────────────────────────────────
 
+    const emptyState = document.getElementById('dashboard-empty-state');
+    const listContainer = document.getElementById('dashboard-projects-list');
+
     if (!projects.length) {
-      const listContainer = document.getElementById('dashboard-projects-list');
-      if (listContainer) {
-        listContainer.innerHTML = `
-          <div class="dash-empty">
-            <div style="font-size:48px;margin-bottom:16px">📂</div>
-            <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No Projects Yet</div>
-            <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Start a new survey to create your first project.</div>
-            <button id="btn-empty-new-survey" class="dash-new-btn">Start New Survey</button>
-          </div>`;
-        // Wire up the empty state button
-        const emptyBtn = document.getElementById('btn-empty-new-survey');
-        if (emptyBtn) {
-          emptyBtn.addEventListener('click', startNewSurvey);
-        }
-      }
+      if (emptyState) emptyState.style.display = 'flex';
+      if (listContainer) listContainer.style.display = 'none';
       return;
     }
+
+    if (emptyState) emptyState.style.display = 'none';
+    if (listContainer) listContainer.style.display = 'flex';
 
     // Sort by updatedAt desc
     projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
-    const cards = projects.map(p => {
-      const statusColor = p.status === 'completed' ? '#0d9450' : p.status === 'in-progress' ? '#c58a00' : '#64748b';
-      const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'in-progress' ? 'In Progress' : p.status;
-      const actionBtn = p.status === 'completed' 
-        ? `<button class="dash-card-btn secondary" onclick="loadProjectAndViewReport('${p.id}')">View Report</button>`
-        : `<button class="dash-card-btn primary" onclick="loadProjectAndContinue('${p.id}')">Continue</button>`;
+    // Build project rows
+    const rows = projects.map(p => {
+      const isCompleted = p.status === 'completed';
+      const statusClass = isCompleted ? 'completed' : 'in-progress';
+      const statusLabel = isCompleted ? 'Completed' : 'In Progress';
+
+      // Calculate progress from items if available
+      let progress = 0;
+      try {
+        const data = JSON.parse(p.data || '{}');
+        if (data.items) {
+          const items = Object.values(data.items);
+          const total = items.length;
+          const done = items.filter(i => i.status === 'done' || i.status === 'na').length;
+          progress = total ? Math.round((done / total) * 100) : 0;
+        }
+      } catch (e) {}
+
+      const actionBtn = isCompleted
+        ? `<button class="dash-action-btn secondary" onclick="loadProjectAndViewReport('${p.id}')">View Report</button>`
+        : `<button class="dash-action-btn primary" onclick="loadProjectAndContinue('${p.id}')">Continue</button>`;
+
+      // Mobile meta row (hidden on desktop, shown via CSS on mobile)
+      const mobileMeta = `
+        <div class="dash-mobile-meta-row" style="display:none;">
+          <div class="dash-date-cell">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            ${p.date || '—'}
+          </div>
+          <div class="dash-progress-cell">
+            <div class="dash-progress-track"><div class="dash-progress-fill" style="width:${progress}%"></div></div>
+            <span class="dash-progress-text">${progress}%</span>
+          </div>
+        </div>`;
 
       return `
-        <div class="dash-card" data-status="${p.status}">
-          <div class="dash-card-header">
-            <span class="dash-status-badge" style="background:${statusColor}">${statusLabel}</span>
-            <button class="dash-delete-btn" onclick="deleteProjectAndRefresh('${p.id}')" title="Delete project">🗑️</button>
+        <div class="dash-project-row" onclick="event.target.closest('.dash-actions-cell') || ${isCompleted ? `loadProjectAndViewReport('${p.id}')` : `loadProjectAndContinue('${p.id}')`}">
+          <div class="dash-status-badge ${statusClass}">
+            <span class="status-dot"></span>
+            ${statusLabel}
           </div>
-          <div class="dash-vessel-name">${p.vesselName || 'Unnamed Vessel'}</div>
-          <div class="dash-meta">${p.surveyorName || '—'} · ${p.date || '—'}</div>
-          <div class="dash-card-actions">${actionBtn}</div>
+          <div class="dash-vessel-cell">
+            <div class="dash-vessel-name">${escapeHtml(p.vesselName || 'Unnamed Vessel')}</div>
+            <div class="dash-vessel-meta">
+              <span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                ${escapeHtml(p.surveyorName || 'Unknown')}
+              </span>
+              <span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                ${p.date || '—'}
+              </span>
+            </div>
+          </div>
+          <div class="dash-date-cell">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            ${p.date || '—'}
+          </div>
+          <div class="dash-progress-cell">
+            <div class="dash-progress-track"><div class="dash-progress-fill" style="width:${progress}%"></div></div>
+            <span class="dash-progress-text">${progress}%</span>
+          </div>
+          <div class="dash-actions-cell">
+            ${actionBtn}
+            <button class="dash-action-btn danger" onclick="event.stopPropagation(); deleteProjectAndRefresh('${p.id}')" title="Delete">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+          ${mobileMeta}
         </div>`;
     }).join('');
 
-    // Populate the dedicated projects list container if it exists
-    const listContainer = document.getElementById('dashboard-projects-list');
     if (listContainer) {
-      listContainer.innerHTML = cards;
-    } else {
-      dash.innerHTML = `
-        <div class="dash-header">
-          <h2 style="margin:0;font-size:20px;color:var(--text)">📂 Projects</h2>
-          <button id="btn-start-new-survey" class="dash-new-btn">+ New Survey</button>
-        </div>
-        <div class="dash-grid">${cards}</div>
-      `;
-      // Wire up the new survey button
-      const newBtn = document.getElementById('btn-start-new-survey');
-      if (newBtn) {
-        newBtn.addEventListener('click', startNewSurvey);
-      }
+      listContainer.innerHTML = rows;
     }
   });
+}
+
+// Helper for HTML escaping in dashboard
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // ── Start a new survey from dashboard ─────────────────────────
