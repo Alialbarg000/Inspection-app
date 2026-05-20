@@ -1,8 +1,281 @@
 /* ================================================================
-   SANSOON YACHT SERVICES — Marine Survey Pro v5
-   script.js  |  Mobile Search Toggle · Color Swatch Markup · 3-Tier Layout
+   SANSOON YACHT SERVICES — Marine Survey Pro v6
+   script.js  |  Dashboard · Project System · Surveyor Profile · Unified PDF
 ================================================================ */
 'use strict';
+
+// ───────────────────────────────────────────────────────────────
+// §0  INDEXEDDB PROJECT DATABASE
+// ───────────────────────────────────────────────────────────────
+const PROJECT_DB_NAME = 'sansoon_projects_db';
+const PROJECT_STORE   = 'projects';
+const PROJECT_DB_VER  = 1;
+let _projectDB = null;
+let _currentProjectId = null;
+
+function openProjectDB() {
+  if (_projectDB) return Promise.resolve(_projectDB);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(PROJECT_DB_NAME, PROJECT_DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(PROJECT_STORE)) {
+        const store = db.createObjectStore(PROJECT_STORE, { keyPath: 'id' });
+        store.createIndex('status', 'status', { unique: false });
+        store.createIndex('date', 'date', { unique: false });
+      }
+    };
+    req.onsuccess = e => { _projectDB = e.target.result; res(_projectDB); };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function saveProject() {
+  const db = await openProjectDB();
+  const vesselName = document.getElementById('v-name') ? document.getElementById('v-name').value : 'Unnamed';
+  const surveyorName = document.getElementById('v-surveyor') ? document.getElementById('v-surveyor').value : '';
+  const date = document.getElementById('v-date') ? document.getElementById('v-date').value : new Date().toISOString().slice(0,10);
+
+  const project = {
+    id: _currentProjectId || 'proj-' + Date.now(),
+    vesselName: vesselName,
+    surveyorName: surveyorName,
+    date: date,
+    status: _currentProjectId ? (await loadProjectById(_currentProjectId)).status : 'in-progress',
+    data: JSON.stringify({
+      vesselFields: {
+        'v-name': document.getElementById('v-name') ? document.getElementById('v-name').value : '',
+        'v-hin': document.getElementById('v-hin') ? document.getElementById('v-hin').value : '',
+        'v-ref': document.getElementById('v-ref') ? document.getElementById('v-ref').value : '',
+        'v-surveyor': document.getElementById('v-surveyor') ? document.getElementById('v-surveyor').value : '',
+        'v-client': document.getElementById('v-client') ? document.getElementById('v-client').value : '',
+        'v-date': document.getElementById('v-date') ? document.getElementById('v-date').value : '',
+        'v-type': document.getElementById('v-type') ? document.getElementById('v-type').value : '',
+        'v-location': document.getElementById('v-location') ? document.getElementById('v-location').value : '',
+        'v-weather': document.getElementById('v-weather') ? document.getElementById('v-weather').value : '',
+        'v-scope': document.getElementById('v-scope') ? document.getElementById('v-scope').value : '',
+      },
+      items: State.items,
+      vesselPhoto: State.vesselPhoto,
+      customSections: customSections,
+    }),
+    updatedAt: Date.now(),
+  };
+
+  return new Promise((res, rej) => {
+    const tx = db.transaction(PROJECT_STORE, 'readwrite');
+    const store = tx.objectStore(PROJECT_STORE);
+    const req = store.put(project);
+    req.onsuccess = () => { _currentProjectId = project.id; res(project); };
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function loadProjects() {
+  const db = await openProjectDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(PROJECT_STORE, 'readonly');
+    const store = tx.objectStore(PROJECT_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function loadProjectById(id) {
+  const db = await openProjectDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(PROJECT_STORE, 'readonly');
+    const store = tx.objectStore(PROJECT_STORE);
+    const req = store.get(id);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function updateProjectStatus(id, status) {
+  const db = await openProjectDB();
+  const project = await loadProjectById(id);
+  if (!project) return;
+  project.status = status;
+  project.updatedAt = Date.now();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(PROJECT_STORE, 'readwrite');
+    const store = tx.objectStore(PROJECT_STORE);
+    const req = store.put(project);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function deleteProject(id) {
+  const db = await openProjectDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(PROJECT_STORE, 'readwrite');
+    const store = tx.objectStore(PROJECT_STORE);
+    const req = store.delete(id);
+    req.onsuccess = () => res();
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function loadProjectIntoState(id) {
+  const project = await loadProjectById(id);
+  if (!project) return false;
+  try {
+    const data = JSON.parse(project.data);
+    _currentProjectId = project.id;
+
+    // Restore vessel fields
+    if (data.vesselFields) {
+      Object.keys(data.vesselFields).forEach(key => {
+        const el = document.getElementById(key);
+        if (el) el.value = data.vesselFields[key];
+      });
+    }
+
+    // Restore items
+    if (data.items) {
+      Object.keys(data.items).forEach(id => {
+        if (State.items[id]) {
+          State.items[id] = data.items[id];
+        }
+      });
+    }
+
+    // Restore vessel photo
+    if (data.vesselPhoto) State.vesselPhoto = data.vesselPhoto;
+
+    // Restore custom sections
+    if (data.customSections) {
+      customSections = data.customSections;
+      customSections.forEach(injectCustomSectionIntoDB);
+    }
+
+    return true;
+  } catch (e) {
+    console.warn('loadProjectIntoState failed:', e);
+    return false;
+  }
+}
+
+function renderDashboard() {
+  const dash = document.getElementById('dashboard-panel');
+  if (!dash) return;
+
+  loadProjects().then(projects => {
+    if (!projects.length) {
+      dash.innerHTML = `
+        <div class="dash-empty">
+          <div style="font-size:48px;margin-bottom:16px">📂</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">No Projects Yet</div>
+          <div style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Start a new survey to create your first project.</div>
+          <button onclick="showView('splash')" class="dash-new-btn">Start New Survey</button>
+        </div>`;
+      return;
+    }
+
+    // Sort by updatedAt desc
+    projects.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+    const cards = projects.map(p => {
+      const statusColor = p.status === 'completed' ? '#0d9450' : p.status === 'in-progress' ? '#c58a00' : '#64748b';
+      const statusLabel = p.status === 'completed' ? 'Completed' : p.status === 'in-progress' ? 'In Progress' : p.status;
+      const actionBtn = p.status === 'completed' 
+        ? `<button class="dash-card-btn secondary" onclick="loadProjectAndViewReport('${p.id}')">View Report</button>`
+        : `<button class="dash-card-btn primary" onclick="loadProjectAndContinue('${p.id}')">Continue</button>`;
+
+      return `
+        <div class="dash-card" data-status="${p.status}">
+          <div class="dash-card-header">
+            <span class="dash-status-badge" style="background:${statusColor}">${statusLabel}</span>
+            <button class="dash-delete-btn" onclick="deleteProjectAndRefresh('${p.id}')" title="Delete project">🗑️</button>
+          </div>
+          <div class="dash-vessel-name">${p.vesselName || 'Unnamed Vessel'}</div>
+          <div class="dash-meta">${p.surveyorName || '—'} · ${p.date || '—'}</div>
+          <div class="dash-card-actions">${actionBtn}</div>
+        </div>`;
+    }).join('');
+
+    dash.innerHTML = `
+      <div class="dash-header">
+        <h2 style="margin:0;font-size:20px;color:var(--text)">📂 Projects</h2>
+        <button onclick="showView('splash')" class="dash-new-btn">+ New Survey</button>
+      </div>
+      <div class="dash-grid">${cards}</div>
+    `;
+  });
+}
+
+async function loadProjectAndContinue(id) {
+  await loadProjectIntoState(id);
+  Nav.stack = ['hub'];
+  showView('hub');
+  renderHub(); renderProgress();
+  showToast('Project loaded');
+}
+
+async function loadProjectAndViewReport(id) {
+  await loadProjectIntoState(id);
+  openReport();
+}
+
+async function deleteProjectAndRefresh(id) {
+  if (!confirm('Delete this project? This cannot be undone.')) return;
+  await deleteProject(id);
+  renderDashboard();
+  showToast('Project deleted');
+}
+
+// ───────────────────────────────────────────────────────────────
+// §0b  SURVEYOR PROFILE
+// ───────────────────────────────────────────────────────────────
+const PROFILE_LS_KEY = 'sansoon_surveyor_profile';
+
+function checkSurveyorProfile() {
+  const profile = localStorage.getItem(PROFILE_LS_KEY);
+  if (!profile) {
+    showSurveyorProfileModal();
+    return false;
+  }
+  try {
+    const p = JSON.parse(profile);
+    const el = document.getElementById('v-surveyor');
+    if (el && !el.value) el.value = p.name || '';
+    return true;
+  } catch (e) { return false; }
+}
+
+function showSurveyorProfileModal() {
+  const old = document.getElementById('profile-modal-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'profile-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:10000;animation:fadeIn .3s ease;';
+  overlay.innerHTML = `
+    <div class="profile-modal" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 28px;max-width:420px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.5);animation:slideUp .4s cubic-bezier(.16,1,.3,1);">
+      <div style="font-size:32px;margin-bottom:12px">👤</div>
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Surveyor Profile</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-bottom:24px">Enter your details to auto-fill reports.</div>
+      <input type="text" id="profile-name" placeholder="Full Name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+      <input type="email" id="profile-email" placeholder="Email Address" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;margin-bottom:20px;box-sizing:border-box;">
+      <button id="profile-save-btn" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600;">Save Profile</button>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('profile-save-btn').addEventListener('click', () => {
+    const name = document.getElementById('profile-name').value.trim();
+    const email = document.getElementById('profile-email').value.trim();
+    if (!name) { showToast('Please enter your name'); return; }
+    localStorage.setItem(PROFILE_LS_KEY, JSON.stringify({ name, email, createdAt: Date.now() }));
+    const el = document.getElementById('v-surveyor');
+    if (el) el.value = name;
+    overlay.remove();
+    showToast('Profile saved');
+  });
+}
+
 
 // ───────────────────────────────────────────────────────────────
 // §22b  AUTOSAVE ENGINE  —  sansoon_survey_draft
@@ -48,6 +321,11 @@ function saveAllProgress() {
     });
 
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+
+    // Also auto-save to project DB if we have an active project
+    if (_currentProjectId) {
+      saveProject().catch(() => {});
+    }
   } catch (e) {
     // sessionStorage may be full; fail silently
     console.warn('saveAllProgress failed:', e);
@@ -141,6 +419,8 @@ function hideAccessGate() {
   // Restore all saved progress immediately after the gate passes
   loadAllProgress();
   refreshAll();
+  // Check surveyor profile after gate
+  checkSurveyorProfile();
 }
 
 async function verifyAccessKey() {
@@ -198,8 +478,8 @@ function showAgError(msg) {
   errEl.style.display = 'block';
 }
 
-// ── COMPANY LOGO — paste your real Base64 string here ─────────
-const COMPANY_LOGO_BASE64 = 'PLACEHOLDER_LOGO_BASE64';
+// ── COMPANY LOGO ──────────────────────────────────────────────
+const COMPANY_LOGO_BASE64 = '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';
 
 const COMPANY_NAME     = "SANSOON YACHT SERVICES";
 const LEGAL_DISCLAIMER = "IMPORTANT — LIABILITY DISCLAIMER: This report has been prepared solely for the use of the client named herein and is based on the surveyor's visual examination of the vessel at the time and place indicated. This survey is not a guarantee or warranty of the vessel's condition, seaworthiness, or fitness for any particular purpose. The surveyor's findings are the professional opinion of the surveyor based on conditions observed and accessible at the time of inspection. Sansoon Yacht Services and its surveyors shall not be liable for any loss, damage, or injury arising from reliance on this report beyond the survey fee paid. © " + new Date().getFullYear() + " Sansoon Yacht Services. All rights reserved.";
@@ -230,6 +510,8 @@ function deleteQuickInsert(idx) {
 // ───────────────────────────────────────────────────────────────
 // §1  CHECKLIST DATABASE
 // ───────────────────────────────────────────────────────────────
+
+
 const DB = [
   {
     id:'vessel-id', label:'Vessel ID & Docs', icon:'📋',
@@ -608,6 +890,7 @@ const Nav = {
       refreshAll(); return;
     }
     if (this.current() === 'hub') { showBackToSplashConfirm(); return; }
+    if (this.current() === 'dashboard') { showBackToSplashConfirm(); return; }
     if (this.stack.length > 1) this.stack.pop();
     showView(this.stack[this.stack.length - 1]);
   },
@@ -675,6 +958,8 @@ function showView(view) {
   document.getElementById('splash').style.display       = view === 'splash'   ? 'flex'  : 'none';
   const hub = document.getElementById('hub-panel');
   if (hub) hub.style.display = view === 'hub' ? 'block' : 'none';
+  const dash = document.getElementById('dashboard-panel');
+  if (dash) dash.style.display = view === 'dashboard' ? 'block' : 'none';
   document.getElementById('work-area').style.display    = view === 'category' ? 'flex'  : 'none';
   document.getElementById('report-panel').style.display = view === 'report'   ? 'block' : 'none';
   updateBackBtn();
@@ -750,6 +1035,7 @@ function enableDragScroll(el) {
     el.scrollLeft = scrollLeft - (e.pageX - el.offsetLeft - startX) * 1.5;
   });
 }
+
 
 // ───────────────────────────────────────────────────────────────
 // §6  ACCORDION  (with horizontal-divider jump arrows)
@@ -905,7 +1191,7 @@ function toggleFinding(itemId) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// §9  NOTE TRAY
+// §9  NOTE TRAY (Modal on desktop/tablet, side panel on mobile)
 // ───────────────────────────────────────────────────────────────
 let _currentTrayId = null;
 
@@ -932,11 +1218,14 @@ function openNoteTray(itemId) {
     renderTrayPhoto(f.photo || null);
   }
 
-  renderQuickInsertList();
-  renderChipSuggestion(s.status || 'progress');
+  // Render cost field in collapsible Extras section
   renderCostField(itemId);
 
-  $('note-tray').classList.add('open');
+  // Add animation class for modal entrance
+  const tray = $('note-tray');
+  tray.classList.add('open');
+  tray.classList.add('tray-animate-in');
+
   $('tray-overlay').classList.add('visible');
   updateBackBtn();
   requestAnimationFrame(() => {
@@ -944,11 +1233,15 @@ function openNoteTray(itemId) {
     const len = $('tray-note').value.length;
     $('tray-note').setSelectionRange(len, len);
   });
+
+  // Remove animation class after animation completes
+  setTimeout(() => tray.classList.remove('tray-animate-in'), 500);
 }
 
 function closeNoteTray() {
   saveTray();
-  $('note-tray').classList.remove('open');
+  const tray = $('note-tray');
+  tray.classList.remove('open');
   $('tray-overlay').classList.remove('visible');
   Nav.noteTrayOpen = false;
   _currentTrayId = null;
@@ -1104,40 +1397,6 @@ function handlePhotoInput(input) {
   });
 }
 
-// ── Quick Insert ───────────────────────────────────────────────
-function renderQuickInsertList() {
-  const list = $('qi-list');
-  list.innerHTML = '';
-  if (!quickInsertLibrary.length) {
-    list.innerHTML = '<div class="qi-empty">No saved phrases yet. Type a note and click 💾 to save it here.</div>';
-    return;
-  }
-  quickInsertLibrary.forEach((phrase, idx) => {
-    const row = document.createElement('div');
-    row.className = 'qi-row';
-    row.innerHTML = `
-      <span class="qi-text" title="${phrase}">${phrase}</span>
-      <button class="qi-del" title="Remove" onclick="deleteQuickInsert(${idx})">✕</button>`;
-    row.querySelector('.qi-text').addEventListener('click', () => insertQuickPhrase(phrase));
-    list.appendChild(row);
-  });
-}
-
-function insertQuickPhrase(phrase) {
-  if (!_currentTrayId) return;
-  $('tray-note').value = phrase;
-  State.items[_currentTrayId].finding.note = phrase;
-  $('tray-note').focus();
-}
-
-function handleSaveToQuickInsert() {
-  const text = $('tray-note').value.trim();
-  if (!text) { showToast('Type a note first'); return; }
-  const added = addToQuickInsert(text);
-  if (added) { renderQuickInsertList(); showToast('Saved to Quick Insert'); }
-  else showToast('Already in Quick Insert');
-}
-
 // ── Vessel Cover Photo — stored in IndexedDB ──────────────────
 const VESSEL_PHOTO_IDB_KEY = '__vessel_cover_photo__';
 
@@ -1179,6 +1438,7 @@ function updateVesselPhotoPreview() {
 }
 
 function removeVesselPhoto() { State.vesselPhoto = null; updateVesselPhotoPreview(); }
+
 
 // ───────────────────────────────────────────────────────────────
 // §10  NAVIGATION
@@ -1502,11 +1762,25 @@ async function buildReport() {
     <div class="rpt-footer">${COMPANY_NAME} &nbsp;·&nbsp; ${I.surveyor} &nbsp;·&nbsp; ${fmtDate} &nbsp;·&nbsp; ${I.vessel}</div>`;
 }
 
+
 // ───────────────────────────────────────────────────────────────
-// §14  PDF EXPORT
+// §14  UNIFIED PDF EXPORT  —  generatePDF(mode)
+//  mode = 'preview' → watermark with company logo
+//  mode = 'download' → clean, no watermark
 // ───────────────────────────────────────────────────────────────
-async function downloadPDF() {
-  const includeAll = document.getElementById('pdf-include-all')?.checked ?? true;
+async function generatePDF(mode) {
+  const isPreview = mode === 'preview';
+
+  // Confirmation flow before marking complete on download
+  if (!isPreview && _currentProjectId) {
+    const confirmed = await showCompleteConfirmModal();
+    if (confirmed === true) {
+      await updateProjectStatus(_currentProjectId, 'completed');
+    }
+    // If false, just download without marking complete
+  }
+
+  const includeAll = document.getElementById('pdf-include-all') ? document.getElementById('pdf-include-all').checked : true;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const W=210, M=15, CW=W-M*2;
@@ -1576,6 +1850,15 @@ async function downloadPDF() {
       setF(6,'normal'); clr(100,116,139);
       doc.text(COMPANY_NAME, M, 290);
       doc.text(`Page ${i} of ${pages}`, W-M, 290, {align:'right'});
+
+      // Watermark on preview mode
+      if (isPreview) {
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: 0.08 }));
+        setF(48,'bold'); clr(30,58,138);
+        doc.text('PREVIEW', W/2, 150, {align:'center', angle: 45});
+        doc.restoreGraphicsState();
+      }
     }
   };
 
@@ -1752,7 +2035,7 @@ async function downloadPDF() {
     }
   }
 
-// ── Detail breakdown — light mode ────────────────────────────
+  // ── Detail breakdown — light mode ────────────────────────────
   const pdfAppendixItems = [];
   for (const cat of DB) {
     chk(14);
@@ -1766,7 +2049,7 @@ async function downloadPDF() {
       setF(8,'bold'); clr(30,58,138); doc.text(sub.label, M+4, y+5); y+=9;
 
       if (includeAll) {
-        // ── FULL mode: unchanged — render every item ──────────────
+        // ── FULL mode: render every item row ──────────────────────
         for (const item of sub.items) {
           chk(7);
           const s=State.items[item.id];
@@ -1792,7 +2075,7 @@ async function downloadPDF() {
           draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
         }
       } else {
-        // ── COMPRESSED mode: summarize sat. items, defer photos to appendix ──
+        // ── COMPRESSED mode: summarize satisfactory, collect findings for appendix ──
         const satNames = [];
         for (const item of sub.items) {
           const s = State.items[item.id];
@@ -1810,8 +2093,11 @@ async function downloadPDF() {
               const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
               setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'});
               if (s.finding.photo || s.finding.note || s.finding.priority) {
-                pdfAppendixItems.push({ cat: cat.label, sub: sub.label, item: item.label,
-                  note: s.finding.note, photo: s.finding.photo, priority: s.finding.priority });
+                pdfAppendixItems.push({
+                  cat: cat.label, sub: sub.label, item: item.label,
+                  note: s.finding.note, photo: s.finding.photo,
+                  priority: s.finding.priority
+                });
               }
             }
             y += ll.length*4+1;
@@ -1824,10 +2110,10 @@ async function downloadPDF() {
           }
         }
         if (satNames.length) {
-          chk(10);
-          const satLine = doc.splitTextToSize(`\u2713 Found Satisfactory: ${satNames.join(', ')}.`, CW-6);
-          fill(240,253,244); doc.roundedRect(M,y,CW,satLine.length*4+5,2,2,'F');
-          setF(7,'normal'); clr(5,120,60); doc.text(satLine, M+3, y+5); y+=satLine.length*4+8;
+          chk(8);
+          const satLine = doc.splitTextToSize(`✓ Found Satisfactory: ${satNames.join(', ')}.`, CW-4);
+          fill(240,253,244); doc.roundedRect(M,y,CW,satLine.length*4+4,2,2,'F');
+          setF(7,'normal'); clr(5,120,60); doc.text(satLine, M+3, y+4); y+=satLine.length*4+6;
         }
       }
       y+=3;
@@ -1835,43 +2121,48 @@ async function downloadPDF() {
     y+=4;
   }
 
-  // ── Findings Appendix (compressed mode only) ──────────────────
+  // ── Findings Appendix (compressed mode only) ─────────────────
   if (!includeAll && pdfAppendixItems.length) {
     doc.addPage(); y=22;
     fill(255,255,255); doc.rect(0,0,210,297,'F');
     setF(12,'bold'); clr(15,23,42); doc.text('FINDINGS & PHOTOS APPENDIX', M, y); y+=5;
-    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=10;
-    const APX_COLS=2, APX_W=(CW-6)/2, APX_PHOTO_H=42;
-    let col=0, rowTop=y;
+    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
+    const APX_COLS=2, APX_CARD_W=(CW-6)/APX_COLS, APX_PHOTO_H=40;
+    let apxCol=0, apxRowTop=y;
     for (const f of pdfAppendixItems) {
-      const photo = await resolvePhoto(f.photo);
-      const cardH = (photo ? APX_PHOTO_H+4 : 0) + 20;
-      if (col===0) { chk(cardH+4); rowTop=y; }
-      const cx = M + col*(APX_W+6);
-      fill(248,250,252); doc.roundedRect(cx,rowTop,APX_W,cardH,2,2,'F');
-      draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(cx,rowTop,APX_W,cardH,2,2,'S');
-      let cy=rowTop+4;
-      if (photo) {
+      const resolvedPhoto = await resolvePhoto(f.photo);
+      const cardH = (resolvedPhoto ? APX_PHOTO_H+4 : 0) + 18;
+      if (apxCol === 0) {
+        chk(cardH+2); apxRowTop=y;
+      }
+      const cardX = M + apxCol*(APX_CARD_W+6);
+      fill(248,250,252); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'F');
+      draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'S');
+      let cy=apxRowTop+4;
+      if (resolvedPhoto) {
         try {
-          const _i=new Image();
-          await new Promise(r=>{ _i.onload=r; _i.onerror=r; _i.src=photo; });
-          const _s=Math.min((APX_W-2)/(_i.naturalWidth||1), APX_PHOTO_H/(_i.naturalHeight||1));
-          const _dw=(_i.naturalWidth||1)*_s, _dh=(_i.naturalHeight||1)*_s;
-          fill(226,232,240); doc.roundedRect(cx+1,cy,APX_W-2,APX_PHOTO_H,1,1,'F');
-          doc.addImage(photo,'JPEG',cx+1+(APX_W-2-_dw)/2,cy+(APX_PHOTO_H-_dh)/2,_dw,_dh,undefined,'FAST');
-          cy+=APX_PHOTO_H+4;
+          const _ai=new Image();
+          await new Promise(res=>{ _ai.onload=res; _ai.onerror=res; _ai.src=resolvedPhoto; });
+          const _aw=_ai.naturalWidth||1, _ah=_ai.naturalHeight||1;
+          const _scale=Math.min(APX_CARD_W/_aw, APX_PHOTO_H/_ah);
+          const _dw=_aw*_scale, _dh=_ah*_scale;
+          const _dx=cardX+(APX_CARD_W-_dw)/2;
+          fill(226,232,240); doc.roundedRect(cardX+1,cy,APX_CARD_W-2,APX_PHOTO_H,1,1,'F');
+          doc.addImage(resolvedPhoto,'JPEG',_dx,cy+(APX_PHOTO_H-_dh)/2,_dw,_dh,undefined,'FAST');
+          cy+=APX_PHOTO_H+3;
         } catch(e) { cy+=2; }
       }
       const pc={A:[192,25,44],B:[161,75,0],C:[37,99,235]};
-      if (f.priority) { setF(6,'bold'); clr(...(pc[f.priority]||[71,85,105])); doc.text(`PRI ${f.priority}`, cx+3, cy+3); cy+=5; }
+      if (f.priority) { setF(6,'bold'); clr(...(pc[f.priority]||[71,85,105])); doc.text(`PRI ${f.priority}`, cardX+2, cy+3); }
       setF(6.5,'bold'); clr(15,23,42);
-      const il=doc.splitTextToSize(f.item, APX_W-5); doc.text(il, cx+3, cy+3); cy+=il.length*3.5+3;
-      if (f.note) { setF(6,'italic'); clr(100,116,139); doc.text(doc.splitTextToSize(f.note, APX_W-5), cx+3, cy); }
-      col++;
-      if (col>=APX_COLS) { col=0; y=rowTop+cardH+5; }
+      const il=doc.splitTextToSize(f.item, APX_CARD_W-4); doc.text(il, cardX+2, cy+(f.priority?7:4));
+      if (f.note) { setF(6,'italic'); clr(100,116,139); const nl=doc.splitTextToSize(f.note, APX_CARD_W-4); doc.text(nl, cardX+2, cy+(f.priority?7:4)+il.length*3.5); }
+      apxCol++;
+      if (apxCol >= APX_COLS) { apxCol=0; y=apxRowTop+cardH+4; }
     }
-    if (col>0) y=rowTop+70;
+    if (apxCol > 0) y=apxRowTop+((pdfAppendixItems.length%APX_COLS===0?0:1)*60)+4;
   }
+
   // ── Repair cost estimate page — light mode ────────────────────
   if (allCostItems.length) {
     doc.addPage(); y=22;
@@ -1922,7 +2213,37 @@ async function downloadPDF() {
 
   drawFooter();
   const fname = `survey-${(I.vessel||'vessel').replace(/\s+/g,'-').toLowerCase()}-${I.date||'report'}.pdf`;
-  doc.save(fname); showToast('PDF saved — '+fname);
+  doc.save(fname); showToast(isPreview ? 'PDF preview saved' : 'PDF downloaded — '+fname);
+}
+
+// ── Confirmation modal for marking survey complete ──────────────
+function showCompleteConfirmModal() {
+  return new Promise((res) => {
+    const overlay = document.createElement('div');
+    overlay.id = 'complete-confirm-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:10001;animation:fadeIn .3s ease;';
+    overlay.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 28px;max-width:420px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.5);animation:slideUp .4s cubic-bezier(.16,1,.3,1);">
+        <div style="font-size:32px;margin-bottom:12px">✅</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px">Mark Survey Complete?</div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:24px">This will mark the project as completed and finalize the report.</div>
+        <div style="display:flex;gap:12px;justify-content:center;">
+          <button id="complete-no" style="flex:1;padding:12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;font-weight:600;">Download Only</button>
+          <button id="complete-yes" style="flex:1;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:14px;font-weight:600;">Yes, Complete</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    document.getElementById('complete-yes').addEventListener('click', () => {
+      overlay.remove();
+      res(true);
+    });
+    document.getElementById('complete-no').addEventListener('click', () => {
+      overlay.remove();
+      res(false);
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); res(false); } });
+  });
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -1931,6 +2252,7 @@ async function downloadPDF() {
 function resetAll() {
   if (!confirm('Reset all inspection data? This cannot be undone.')) return;
   initState(); State.vesselPhoto = null;
+  _currentProjectId = null;
   Nav.stack=['splash']; Nav.activeCategory=null; Nav.lastVisitedSection=null;
   Nav.openAccordion=null; Nav.noteTrayOpen=false; _currentTrayId=null;
   State.filterMode='all';
@@ -1953,15 +2275,16 @@ function showToast(msg) {
   _tt = setTimeout(() => t.classList.remove('show'), 3200);
 }
 
+
 // ───────────────────────────────────────────────────────────────
-// §17  HUB PANEL
+// §17  HUB PANEL (with entrance animations)
 // ───────────────────────────────────────────────────────────────
 function renderHub() {
   const grid = $('hub-grid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  DB.forEach(cat => {
+  DB.forEach((cat, idx) => {
     const items    = catItems(cat);
     const st       = getStats(items);
     const completed= st.done + st.na;
@@ -1971,7 +2294,9 @@ function renderHub() {
     const card = document.createElement('div');
     card.className = 'hub-card' +
       (st.findings ? ' hub-has-finding' : '') +
-      (Nav.lastVisitedSection === cat.id ? ' hub-last-visited' : '');
+      (Nav.lastVisitedSection === cat.id ? ' hub-last-visited' : '') +
+      ' hub-card-entrance';
+    card.style.animationDelay = `${idx * 0.05}s`;
 
     card.innerHTML =
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">' +
@@ -1980,7 +2305,7 @@ function renderHub() {
           'display:inline-flex;align-items:center;justify-content:center;' +
           'min-width:44px;height:24px;padding:0 8px;border-radius:12px;' +
           'background:' + badgeBg + ';color:#fff;font-size:12px;font-weight:700;' +
-          'font-family:\'IBM Plex Mono\',monospace;letter-spacing:0.02em;' +
+          'font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;' +
           'flex-shrink:0;margin-top:2px;box-shadow:0 1px 4px rgba(0,0,0,.35);' +
         '">' + pct + '%</span>' +
       '</div>' +
@@ -1999,7 +2324,8 @@ function renderHub() {
 
   // Add custom section card
   const addCard = document.createElement('div');
-  addCard.className = 'hub-card hub-add-card';
+  addCard.className = 'hub-card hub-add-card hub-card-entrance';
+  addCard.style.animationDelay = `${DB.length * 0.05}s`;
   addCard.innerHTML =
     '<div class="hub-card-icon">➕</div>' +
     '<div class="hub-card-label">Create Custom Section</div>' +
@@ -2254,11 +2580,31 @@ function renderCostField(itemId) {
   const s   = State.items[itemId];
   const val = (s && s.finding && s.finding.cost) ? s.finding.cost : '';
   el.innerHTML =
-    '<label class="tray-field-label">Estimated Repair Cost (CAD $)</label>' +
-    '<input type="number" min="0" step="0.01" class="cost-input f-input" id="tray-cost-input"' +
-    ' placeholder="0.00" value="' + val + '">';
+    '<div class="tray-extras-section">' +
+      '<button type="button" class="tray-extras-toggle" onclick="toggleExtrasSection(this)">' +
+        '<span>⚙️ Extras</span>' +
+        '<span class="extras-chevron">▼</span>' +
+      '</button>' +
+      '<div class="tray-extras-body">' +
+        '<label class="tray-field-label">Estimated Repair Cost (CAD $)</label>' +
+        '<input type="number" min="0" step="0.01" class="cost-input f-input" id="tray-cost-input"' +
+        ' placeholder="0.00" value="' + val + '">' +
+      '</div>' +
+    '</div>';
   const inp = $('tray-cost-input');
   if (inp) inp.addEventListener('input', function() { setItemCost(itemId, this.value); });
+}
+
+function toggleExtrasSection(btn) {
+  const body = btn.nextElementSibling;
+  const chevron = btn.querySelector('.extras-chevron');
+  if (body.classList.contains('open')) {
+    body.classList.remove('open');
+    chevron.textContent = '▼';
+  } else {
+    body.classList.add('open');
+    chevron.textContent = '▲';
+  }
 }
 
 function getAllCostItems() {
@@ -2393,23 +2739,31 @@ function enableInlineEdit(itemId, labelEl) {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (input.value.trim() === '') {
-        input.blur();
-        DB.forEach(cat => cat.subcategories.forEach(sub => {
-          const idx = sub.items.findIndex(it => it.id === itemId);
-          if (idx !== -1) sub.items.splice(idx, 1);
-        }));
-        customSections.forEach(cs => {
-          const idx = cs.items.findIndex(it => it.id === itemId);
-          if (idx !== -1) cs.items.splice(idx, 1);
-        });
-        saveCustomSections();
-        delete State.items[itemId];
-        buildSearchIndex();
-        document.activeElement?.blur();
-        renderAccordion();
-        appendAddItemButton(Nav.activeCategory);
-        showToast('Item deleted');
-        return;
+        // Only delete if it's a custom item (ci- prefix)
+        if (itemId.startsWith('ci-')) {
+          input.blur();
+          DB.forEach(cat => cat.subcategories.forEach(sub => {
+            const idx = sub.items.findIndex(it => it.id === itemId);
+            if (idx !== -1) sub.items.splice(idx, 1);
+          }));
+          customSections.forEach(cs => {
+            const idx = cs.items.findIndex(it => it.id === itemId);
+            if (idx !== -1) cs.items.splice(idx, 1);
+          });
+          saveCustomSections();
+          delete State.items[itemId];
+          buildSearchIndex();
+          document.activeElement?.blur();
+          renderAccordion();
+          appendAddItemButton(Nav.activeCategory);
+          showToast('Item deleted');
+          return;
+        } else {
+          // Default items - revert to original, don't delete
+          input.value = current;
+          input.blur();
+          return;
+        }
       }
       commit();
     }
@@ -2417,48 +2771,23 @@ function enableInlineEdit(itemId, labelEl) {
   });
 }
 
+
 // ───────────────────────────────────────────────────────────────
-// §22  REPHRASE & CHIP SUGGESTIONS
+// §22  REPHRASE (simplified - only 10-12 most common terms)
 // ───────────────────────────────────────────────────────────────
 const REPHRASE_MAP = [
+  [/\bgood\b/gi,               'satisfactory'],
   [/\bbad\b/gi,               'deteriorated'],
+  [/\bbroken\b/gi,            'inoperable'],
   [/\bcracked\b/gi,           'exhibits visible cracking'],
-  [/\bbroken\b/gi,            'found inoperable'],
   [/\bleaking\b/gi,           'exhibits active fluid ingress'],
-  [/\bleak\b/gi,              'fluid seepage observed'],
-  [/\brusty\b/gi,             'exhibiting ferrous corrosion'],
   [/\brust\b/gi,              'ferrous corrosion'],
-  [/\bcorroded\b/gi,          'exhibiting galvanic corrosion'],
   [/\bworn\b/gi,              'shows significant wear'],
-  [/\bwear\b/gi,              'wear and degradation'],
   [/\bmissing\b/gi,           'absent — immediate attention required'],
-  [/\bold\b/gi,               'aged beyond recommended service interval'],
-  [/\bdirty\b/gi,             'contaminated and requires servicing'],
-  [/\bclogged\b/gi,           'obstructed — flow restricted'],
-  [/\bloose\b/gi,             'exhibits inadequate fastening'],
-  [/\bsoft spot\b/gi,         'delamination suspected — moisture ingress likely'],
-  [/\bsoft\b/gi,              'lacks structural rigidity'],
-  [/\bwet\b/gi,               'elevated moisture readings noted'],
   [/\bok\b/gi,                'within acceptable survey parameters'],
-  [/\bgood\b/gi,              'in satisfactory condition'],
-  [/\bfine\b/gi,              'functionally adequate'],
-  [/\bcheck\b/gi,             'requires further evaluation'],
   [/\bnot working\b/gi,       'non-functional — recommend immediate attention'],
-  [/\bdoesn'?t work\b/gi,     'non-functional — recommend immediate attention'],
   [/\bneeds work\b/gi,        'requires remediation'],
-  [/\bfix\b/gi,               'remediate'],
   [/\breplace\b/gi,           'renew or replace at earliest opportunity'],
-  [/\bservice\b/gi,           'service at earliest opportunity'],
-  [/\bsee photo\b/gi,         'refer to photographic documentation'],
-  [/\bpic\b/gi,               'photographic documentation'],
-  [/\bbilge\b/gi,             'bilge compartment'],
-  [/\bhull\b/gi,              'hull structure'],
-  [/\bengine\b/gi,            'propulsion machinery'],
-  [/\btransom\b/gi,           'transom assembly'],
-  [/\bno seacock\b/gi,        'seacock absent — non-compliant below waterline fitting'],
-  [/\bno backing\b/gi,        'backing plate absent — structural risk under load'],
-  [/\bdelamination\b/gi,      'delamination of laminate confirmed — structural repair required'],
-  [/\bblisters\b/gi,          'osmotic blistering present — severity to be assessed'],
 ];
 
 function rephraseNote(text) {
@@ -2477,45 +2806,6 @@ function handleRephrase() {
   ta.value = rephrased;
   if (_currentTrayId) State.items[_currentTrayId].finding.note = rephrased;
   ta.focus(); showToast('Note rephrased ✨');
-}
-
-const CHIP_SUGGESTIONS = {
-  progress:[
-    'Deficiency noted — recommend specialist evaluation before next voyage.',
-    'Active wear observed — service at earliest opportunity.',
-    'Moisture readings elevated — further investigation advised.',
-    'Requires remediation — noted during survey.',
-    'Item observed — condition warrants monitoring and follow-up.',
-  ],
-  done:[
-    'Inspected and found satisfactory at time of survey.',
-    'No deficiencies observed — within acceptable parameters.',
-    'Functional — no action required at this time.',
-    'Condition acceptable — routine maintenance recommended.',
-  ],
-  na:[
-    'Not applicable to this vessel type.',
-    'Not fitted — noted in report.',
-    'Not accessible during survey — limitation noted in report.',
-  ],
-};
-
-function renderChipSuggestion(status) {
-  const el = $('tray-chip-suggestion');
-  if (!el) return;
-  const arr  = CHIP_SUGGESTIONS[status] || CHIP_SUGGESTIONS.progress;
-  const text = arr[Math.floor(Math.random()*arr.length)];
-  el.innerHTML =
-    '<span class="chip-prefix">🔍 Suggested:</span>' +
-    '<button class="chip-insert" data-text="' + text.replace(/"/g,'&quot;') + '">' + text + '</button>';
-  const btn = el.querySelector('.chip-insert');
-  if (btn) btn.addEventListener('click', () => {
-    const ta = $('tray-note');
-    if (!ta) return;
-    ta.value = btn.dataset.text;
-    if (_currentTrayId) State.items[_currentTrayId].finding.note = btn.dataset.text;
-    ta.focus();
-  });
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -2589,7 +2879,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   $('btn-report').addEventListener('click', openReport);
-  $('btn-pdf').addEventListener('click', downloadPDF);
+  // 'View Report as PDF' calls generatePDF('preview')
+  $('btn-pdf').addEventListener('click', () => generatePDF('download'));
   $('btn-refresh-rpt').addEventListener('click', buildReport);
   $('btn-back-survey').addEventListener('click', () => {
     if (Nav.current()==='report' && Nav.stack.length>1) Nav.stack.pop();
@@ -2600,7 +2891,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-start').addEventListener('click', () => {
     const name=$('v-name').value.trim(), surv=$('v-surveyor').value.trim();
     if (!name||!surv) { showToast('⚠️  Enter Vessel Name and Surveyor Name'); return; }
-    Nav.push('hub'); showView('hub'); renderHub(); renderProgress();
+    // Auto-save project with status "in-progress"
+    saveProject().then(() => {
+      Nav.push('hub'); showView('hub'); renderHub(); renderProgress();
+    }).catch(() => {
+      Nav.push('hub'); showView('hub'); renderHub(); renderProgress();
+    });
   });
 
   // Tray events
@@ -2630,7 +2926,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('photo-file-input').addEventListener('change', function() { handlePhotoInput(this); });
   const rpBtn = $('rephrase-btn');
   if (rpBtn) rpBtn.addEventListener('click', handleRephrase);
-  $('qi-save-btn').addEventListener('click', handleSaveToQuickInsert);
+  // Quick Insert save button kept but not auto-rendered
+  const qiBtn = $('qi-save-btn');
+  if (qiBtn) qiBtn.addEventListener('click', handleSaveToQuickInsert);
   $('vessel-photo-input').addEventListener('change', function() { handleVesselPhoto(this); });
 
   // Drag scroll on catbar
