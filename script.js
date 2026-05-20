@@ -1420,7 +1420,7 @@ function buildReport() {
 // ───────────────────────────────────────────────────────────────
 // §14  PDF EXPORT
 // ───────────────────────────────────────────────────────────────
-function downloadPDF() {
+async function downloadPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const W=210, M=15, CW=W-M*2;
@@ -1460,37 +1460,68 @@ function downloadPDF() {
     }
   })));
 
+  // Resolve vessel cover photo from IDB if needed
+  let vesselPhotoData = null;
+  if (State.vesselPhoto) {
+    if (State.vesselPhoto.startsWith('data:')) {
+      vesselPhotoData = State.vesselPhoto;
+    } else {
+      try { vesselPhotoData = await loadPhotoIDB(State.vesselPhoto); } catch(e) {}
+    }
+  }
+
+  // Resolve finding photos from IDB
+  const resolvePhoto = async (ref) => {
+    if (!ref) return null;
+    if (ref.startsWith('data:')) return ref;
+    try { return await loadPhotoIDB(ref); } catch(e) { return null; }
+  };
+  for (const arr of [F.A, F.B, F.C]) {
+    for (const f of arr) { f.photo = await resolvePhoto(f.photo); }
+  }
+
   const chk = (n=10) => { if(y+n>284){ doc.addPage(); y=22; } };
 
   const drawFooter = () => {
     const pages = doc.getNumberOfPages();
     for (let i=1; i<=pages; i++) {
       doc.setPage(i);
-      draw(192,25,44); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
-      setF(6,'normal'); clr(90,105,120);
+      draw(30,60,120); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
+      setF(6,'normal'); clr(100,116,139);
       doc.text(COMPANY_NAME, M, 290);
       doc.text(`Page ${i} of ${pages}`, W-M, 290, {align:'right'});
     }
   };
 
-  // ── Cover ────────────────────────────────────────────────────
-  fill(8,15,28); doc.rect(0,0,210,297,'F');
+  // ── Cover — Horizon light-mode ───────────────────────────────
+  fill(255,255,255); doc.rect(0,0,210,297,'F');
+
+  // Navy accent bar at top
+  fill(30,58,138); doc.rect(0,0,210,3,'F');
+
   let logoBottom = 18;
   const hasLogo = COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64 !== 'PLACEHOLDER_LOGO_BASE64';
   if (hasLogo) {
-    try { doc.addImage('data:image/jpeg;base64,'+COMPANY_LOGO_BASE64,'JPEG',W/2-28,14,56,42); logoBottom=58; } catch(e) {}
-  }
-  setF(8,'bold'); clr(192,25,44); doc.text(COMPANY_NAME, W/2, logoBottom+7, {align:'center'});
-  fill(192,25,44); doc.rect(M, logoBottom+11, CW, 1.5, 'F');
-  setF(22,'bold'); clr(235,242,250); doc.text(I.vessel, W/2, logoBottom+26, {align:'center'});
-  setF(10,'normal'); clr(150,175,205); doc.text(I.type, W/2, logoBottom+36, {align:'center'});
-  setF(9,'normal');  clr(120,145,175); doc.text(fmtDate, W/2, logoBottom+44, {align:'center'});
-
-  let photoBottom = logoBottom + 52;
-  if (State.vesselPhoto) {
-    try { doc.addImage(State.vesselPhoto,'JPEG',M,photoBottom,CW,62,undefined,'FAST'); photoBottom += 66; } catch(e) {}
+    try { doc.addImage('data:image/jpeg;base64,'+COMPANY_LOGO_BASE64,'JPEG',W/2-28,8,56,28); logoBottom=38; } catch(e) {}
   }
 
+  setF(8,'bold'); clr(30,58,138); doc.text(COMPANY_NAME, W/2, logoBottom+5, {align:'center'});
+  fill(30,58,138); doc.rect(M, logoBottom+9, CW, 1.2, 'F');
+  setF(22,'bold'); clr(15,23,42); doc.text(I.vessel, W/2, logoBottom+24, {align:'center'});
+  setF(10,'normal'); clr(71,85,105); doc.text(I.type, W/2, logoBottom+33, {align:'center'});
+  setF(9,'normal');  clr(100,116,139); doc.text(fmtDate, W/2, logoBottom+41, {align:'center'});
+
+  let photoBottom = logoBottom + 50;
+  if (vesselPhotoData) {
+    try {
+      // Card shadow effect: light gray border rect behind image
+      fill(226,232,240); doc.roundedRect(M-1, photoBottom-1, CW+2, 62, 2, 2, 'F');
+      doc.addImage(vesselPhotoData,'JPEG',M,photoBottom,CW,60,undefined,'FAST');
+      photoBottom += 65;
+    } catch(e) {}
+  }
+
+  // Info rows — light mode
   const ROW_H=8, TEXT_OFFSET=5, COL_KEY_W=44, COL_VAL_X=M+COL_KEY_W+2;
   const infoRows=[
     ['VESSEL',I.vessel],['HIN / HULL ID',I.hin],['SURVEYOR',I.surveyor],
@@ -1499,29 +1530,34 @@ function downloadPDF() {
   let iy = photoBottom + 5;
   infoRows.forEach(([k,v], rowIdx) => {
     const rowTop = iy;
-    if (rowIdx%2===0) { fill(14,24,40); doc.rect(M,rowTop,CW,ROW_H,'F'); }
-    setF(7,'bold'); clr(110,135,165); doc.text(k, M+3, rowTop+TEXT_OFFSET);
-    setF(7.5,'normal'); clr(220,232,248);
+    if (rowIdx%2===0) { fill(241,245,249); doc.rect(M,rowTop,CW,ROW_H,'F'); }
+    else              { fill(255,255,255); doc.rect(M,rowTop,CW,ROW_H,'F'); }
+    setF(7,'bold'); clr(71,85,105); doc.text(k, M+3, rowTop+TEXT_OFFSET);
+    setF(7.5,'normal'); clr(15,23,42);
     const valLines = doc.splitTextToSize(String(v), CW-COL_KEY_W-6);
     doc.text(valLines, COL_VAL_X, rowTop+TEXT_OFFSET);
-    draw(28,42,62); doc.setLineWidth(0.2); doc.line(M,rowTop+ROW_H,M+CW,rowTop+ROW_H);
+    draw(203,213,225); doc.setLineWidth(0.2); doc.line(M,rowTop+ROW_H,M+CW,rowTop+ROW_H);
     iy += Math.max(ROW_H, valLines.length*ROW_H);
   });
 
+  // Rounded card border around info table
+  draw(203,213,225); doc.setLineWidth(0.4); doc.roundedRect(M, photoBottom+5, CW, iy-(photoBottom+5), 2,2,'S');
+
   iy += 7;
   const STATS_COLS=3, STATS_ROWS=2, CARD_W=CW/STATS_COLS, CARD_H=18, statsBandH=STATS_ROWS*CARD_H+4;
-  fill(18,28,46); doc.roundedRect(M,iy,CW,statsBandH,2,2,'F');
-  fill(192,25,44); doc.rect(M,iy,2.5,statsBandH,'F');
+  fill(248,250,252); doc.roundedRect(M,iy,CW,statsBandH,2,2,'F');
+  draw(203,213,225); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,statsBandH,2,2,'S');
+  fill(30,58,138); doc.rect(M,iy,2.5,statsBandH,'F');
   const sts  = [`${pct}%`,`${F.A.length}`,`${F.B.length}`,`${F.C.length}`,`${g.done}`,`${g.na}`];
   const stl  = ['Complete','Pri A','Pri B','Pri C','Done','N/A'];
-  const stcl = [[220,230,245],[220,38,38],[215,115,5],[59,130,200],[13,148,84],[100,140,195]];
+  const stcl = [[30,58,138],[192,25,44],[180,90,0],[37,99,235],[5,120,60],[71,85,105]];
   sts.forEach((v,i) => {
     const col=i%STATS_COLS, row=Math.floor(i/STATS_COLS);
     const cx=M+col*CARD_W+CARD_W/2, cy=iy+row*CARD_H+CARD_H*0.52;
-    if (col>0) { draw(30,45,65); doc.setLineWidth(0.3); doc.line(M+col*CARD_W,iy+2,M+col*CARD_W,iy+statsBandH-2); }
-    if (row===1&&col===0) { draw(30,45,65); doc.setLineWidth(0.3); doc.line(M+3,iy+CARD_H,M+CW,iy+CARD_H); }
+    if (col>0) { draw(203,213,225); doc.setLineWidth(0.3); doc.line(M+col*CARD_W,iy+2,M+col*CARD_W,iy+statsBandH-2); }
+    if (row===1&&col===0) { draw(203,213,225); doc.setLineWidth(0.3); doc.line(M+3,iy+CARD_H,M+CW,iy+CARD_H); }
     setF(10,'bold');  clr(...stcl[i]); doc.text(v, cx, cy, {align:'center'});
-    setF(6,'normal'); clr(110,130,160); doc.text(stl[i], cx, cy+4.5, {align:'center'});
+    setF(6,'normal'); clr(100,116,139); doc.text(stl[i], cx, cy+4.5, {align:'center'});
   });
 
   const allCostItems = getAllCostItems();
@@ -1530,94 +1566,115 @@ function downloadPDF() {
     const subtotal=allCostItems.reduce((a,r)=>a+r.cost,0);
     const taxAmt=taxSettings.enabled ? subtotal*taxSettings.rate/100 : 0;
     const total=subtotal+taxAmt, COST_H=taxSettings.enabled?28:22;
-    fill(10,18,32); doc.roundedRect(M,iy,CW,COST_H,2,2,'F');
-    fill(13,148,84); doc.rect(M,iy,2.5,COST_H,'F');
-    setF(7,'bold'); clr(100,170,120); doc.text('ESTIMATED REPAIR COSTS', M+6, iy+6);
-    setF(7,'normal'); clr(130,160,145);
+    fill(240,253,244); doc.roundedRect(M,iy,CW,COST_H,2,2,'F');
+    draw(187,247,208); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,COST_H,2,2,'S');
+    fill(5,120,60); doc.rect(M,iy,2.5,COST_H,'F');
+    setF(7,'bold'); clr(5,120,60); doc.text('ESTIMATED REPAIR COSTS', M+6, iy+6);
+    setF(7,'normal'); clr(71,85,105);
     doc.text(`${allCostItems.length} item${allCostItems.length!==1?'s':''} flagged`, M+6, iy+12);
     if (taxSettings.enabled) {
       doc.text(`Subtotal: ${fmt$(subtotal)}`, M+6, iy+17);
       doc.text(`HST ${taxSettings.rate}%: ${fmt$(taxAmt)}`, M+6, iy+22);
     }
-    setF(9,'bold'); clr(61,219,145);
+    setF(9,'bold'); clr(5,120,60);
     doc.text(fmt$(total), W-M-3, iy+(taxSettings.enabled?20:12), {align:'right'});
-    setF(6,'normal'); clr(80,120,100);
+    setF(6,'normal'); clr(71,85,105);
     doc.text(taxSettings.enabled?'TOTAL INC. TAX':'SUBTOTAL', W-M-3, iy+(taxSettings.enabled?25:17), {align:'right'});
   }
 
-  // ── Page 2: TOC ───────────────────────────────────────────────
+  // ── Page 2: TOC — light mode ──────────────────────────────────
   doc.addPage(); y=22;
-  setF(14,'bold'); clr(220,232,248); doc.text('TABLE OF CONTENTS', M, y); y+=6;
-  fill(192,25,44); doc.rect(M,y,CW,1,'F'); y+=8;
+  fill(255,255,255); doc.rect(0,0,210,297,'F');
+  setF(14,'bold'); clr(15,23,42); doc.text('TABLE OF CONTENTS', M, y); y+=6;
+  fill(30,58,138); doc.rect(M,y,CW,1,'F'); y+=8;
   DB.forEach(cat => {
     chk(9);
     const st=getStats(catItems(cat));
     const cp=st.total?Math.round(((st.done+st.na)/st.total)*100):0;
-    const cpClr = cp>=80?[13,148,84]:cp>=40?[215,115,5]:[192,25,44];
-    setF(8.5,'normal'); clr(205,218,238); doc.text(`${cat.icon}  ${cat.label}`, M, y);
+    const cpClr = cp>=80?[5,120,60]:cp>=40?[161,75,0]:[192,25,44];
+    // Alternating light rows
+    if (DB.indexOf(cat)%2===0){ fill(248,250,252); doc.rect(M,y-5,CW,8,'F'); }
+    setF(8.5,'normal'); clr(30,41,59); doc.text(cat.label, M+3, y);
     setF(8.5,'bold'); clr(...cpClr); doc.text(`${st.done+st.na}/${st.total}  ${cp}%`, W-M, y, {align:'right'});
-    draw(30,45,65); doc.setLineWidth(0.2); doc.line(M+3,y+1,W-M-22,y+1);
+    // Dot leader
+    const labelW = doc.getTextWidth(cat.label) + 6;
+    const scoreW = doc.getTextWidth(`${st.done+st.na}/${st.total}  ${cp}%`) + 4;
+    const dotStart = M + 3 + labelW;
+    const dotEnd   = W - M - scoreW;
+    if (dotEnd > dotStart + 4) {
+      setF(8,'normal'); clr(148,163,184);
+      const dots = '.'.repeat(Math.floor((dotEnd - dotStart) / doc.getTextWidth('.')));
+      doc.text(dots, dotStart, y);
+    }
     y+=8;
   });
 
-  // ── Page 3: Findings ──────────────────────────────────────────
+  // ── Page 3: Findings — light mode ────────────────────────────
   doc.addPage(); y=22;
-  setF(12,'bold'); clr(220,232,248); doc.text('FINDINGS & DEFICIENCIES', M, y); y+=5;
-  fill(192,25,44); doc.rect(M,y,CW,1.2,'F'); y+=8;
+  fill(255,255,255); doc.rect(0,0,210,297,'F');
+  setF(12,'bold'); clr(15,23,42); doc.text('FINDINGS & DEFICIENCIES', M, y); y+=5;
+  fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
   const allF=[...F.A.map(f=>({...f,p:'A'})),...F.B.map(f=>({...f,p:'B'})),...F.C.map(f=>({...f,p:'C'}))];
   if (!allF.length) {
-    setF(9,'normal'); clr(13,148,84);
+    setF(9,'normal'); clr(5,120,60);
     doc.text('No findings or deficiencies were flagged during this inspection.', M, y); y+=10;
   } else {
     const F_COST_X=W-M-2, F_COST_W=24, F_TEXT_W=CW-8-F_COST_W-2;
-    const pc={A:[220,38,38],B:[215,115,5],C:[59,130,200]};
+    const pc={A:[192,25,44],B:[161,75,0],C:[37,99,235]};
+    const pcBg={A:[255,241,241],B:[255,247,237],C:[239,246,255]};
     for (const f of allF) {
       const hasCost = f.cost > 0;
       chk(f.photo ? 28 : 22);
-      const col=pc[f.p];
-      fill(...col); doc.rect(M,y,2.5,16,'F');
-      setF(7,'bold'); clr(...col); doc.text(`PRIORITY ${f.p}`, M+5, y+5);
-      if (hasCost) { setF(8,'bold'); clr(61,219,145); doc.text(fmt$(f.cost), F_COST_X, y+5, {align:'right'}); }
-      setF(7,'normal'); clr(100,120,155); doc.text(`${f.cat}  >  ${f.sub}`, M+5, y+11);
-      setF(9,'bold'); clr(220,232,248);
+      fill(...pcBg[f.p]); doc.roundedRect(M,y,CW,16,2,2,'F');
+      draw(...pc[f.p]); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,16,2,2,'S');
+      fill(...pc[f.p]); doc.rect(M,y,2.5,16,'F');
+      setF(7,'bold'); clr(...pc[f.p]); doc.text(`PRIORITY ${f.p}`, M+5, y+5);
+      if (hasCost) { setF(8,'bold'); clr(5,120,60); doc.text(fmt$(f.cost), F_COST_X, y+5, {align:'right'}); }
+      setF(7,'normal'); clr(71,85,105); doc.text(`${f.cat}  >  ${f.sub}`, M+5, y+11);
+      setF(9,'bold'); clr(15,23,42);
       const il = doc.splitTextToSize(f.item, hasCost ? F_TEXT_W : CW-8);
       doc.text(il, M+5, y+17); y += 17 + il.length*4.5;
       if (f.note) {
         chk(8);
         const nl=doc.splitTextToSize(`"${f.note}"`, CW-10);
-        setF(8,'italic'); clr(175,188,205); doc.text(nl, M+5, y); y+=nl.length*4.5+2;
+        setF(8,'italic'); clr(71,85,105); doc.text(nl, M+5, y); y+=nl.length*4.5+2;
       }
       if (f.photo) {
         chk(58);
-        try { fill(20,32,52); doc.rect(M,y,CW,54,'F'); doc.addImage(f.photo,'JPEG',M+1,y+1,CW-2,52,undefined,'FAST'); y+=56; } catch(e) {}
+        try {
+          fill(241,245,249); doc.roundedRect(M,y,CW,54,2,2,'F');
+          doc.addImage(f.photo,'JPEG',M+1,y+1,CW-2,52,undefined,'FAST');
+          y+=56;
+        } catch(e) {}
       }
-      draw(30,45,65); doc.line(M+3,y+2,M+CW,y+2); y+=7;
+      draw(203,213,225); doc.line(M+3,y+2,M+CW,y+2); y+=7;
     }
   }
 
-  // ── Detail breakdown ──────────────────────────────────────────
+  // ── Detail breakdown — light mode ────────────────────────────
   for (const cat of DB) {
     chk(14);
-    fill(8,15,28); doc.rect(M,y,CW,9,'F');
-    fill(192,25,44); doc.rect(M,y,2.5,9,'F');
-    setF(9,'bold'); clr(235,242,250); doc.text(`${cat.icon}  ${cat.label.toUpperCase()}`, M+5, y+6); y+=12;
+    fill(241,245,249); doc.roundedRect(M,y,CW,9,2,2,'F');
+    draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,9,2,2,'S');
+    fill(30,58,138); doc.rect(M,y,2.5,9,'F');
+    setF(9,'bold'); clr(15,23,42); doc.text(cat.label.toUpperCase(), M+5, y+6); y+=12;
     for (const sub of cat.subcategories) {
       chk(9);
-      fill(15,24,40); doc.rect(M,y,CW,7,'F');
-      setF(8,'bold'); clr(100,140,185); doc.text(sub.label, M+4, y+5); y+=9;
+      fill(248,250,252); doc.rect(M,y,CW,7,'F');
+      setF(8,'bold'); clr(30,58,138); doc.text(sub.label, M+4, y+5); y+=9;
       for (const item of sub.items) {
         chk(7);
         const s=State.items[item.id];
         const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
-        const sc={null:[55,75,100],progress:[215,115,5],done:[13,148,84],na:[80,100,180]}[s.status]||[55,75,100];
+        const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
         setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
-        setF(7,'normal'); clr(205,218,238);
+        setF(7,'normal'); clr(30,41,59);
         const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
         if (s.finding.active) {
-          const fc={A:[220,38,38],B:[215,115,5],C:[59,130,200]}[s.finding.priority||'C'];
+          const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
           const hasCost2 = s.finding.cost && parseFloat(s.finding.cost)>0;
           if (hasCost2) {
-            setF(7,'bold'); clr(61,219,145); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
+            setF(7,'bold'); clr(5,120,60); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
             setF(7,'bold'); clr(...fc); doc.text(`[P${s.finding.priority||'C'}]`, W-M-2-18, y+4.5, {align:'right'});
           } else { setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'}); }
         }
@@ -1625,57 +1682,58 @@ function downloadPDF() {
         if (s.finding.active && s.finding.note) {
           chk(6);
           const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
-          setF(7,'italic'); clr(150,130,70); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+          setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
         }
-        draw(22,35,55); doc.line(M+12,y,M+CW,y); y+=2;
+        draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
       }
       y+=3;
     }
     y+=4;
   }
 
-  // ── Repair cost estimate page ─────────────────────────────────
+  // ── Repair cost estimate page — light mode ────────────────────
   if (allCostItems.length) {
     doc.addPage(); y=22;
-    setF(12,'bold'); clr(220,232,248); doc.text('REPAIR COST ESTIMATE', M, y); y+=5;
-    fill(192,25,44); doc.rect(M,y,CW,1.2,'F'); y+=8;
+    fill(255,255,255); doc.rect(0,0,210,297,'F');
+    setF(12,'bold'); clr(15,23,42); doc.text('REPAIR COST ESTIMATE', M, y); y+=5;
+    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
     const TH=7;
-    fill(12,22,38); doc.rect(M,y,CW,TH,'F');
-    setF(7,'bold'); clr(100,125,160);
+    fill(241,245,249); doc.rect(M,y,CW,TH,'F');
+    setF(7,'bold'); clr(71,85,105);
     doc.text('#', M+3, y+5); doc.text('ITEM / DESCRIPTION', M+10, y+5);
     doc.text('PRI', M+CW-36, y+5); doc.text('EST. COST', W-M-2, y+5, {align:'right'});
-    draw(192,25,44); doc.setLineWidth(0.4); doc.line(M,y+TH,M+CW,y+TH); y+=TH+2;
+    draw(30,58,138); doc.setLineWidth(0.4); doc.line(M,y+TH,M+CW,y+TH); y+=TH+2;
 
     allCostItems.forEach((r,i) => {
       const rowLines=doc.splitTextToSize(r.item, CW-56);
       const rowH=Math.max(9, rowLines.length*4.5+4); chk(rowH+2);
-      if (i%2===0) { fill(10,18,32); doc.rect(M,y,CW,rowH,'F'); }
-      setF(7,'bold'); clr(80,100,140); doc.text(String(i+1), M+3, y+5.5);
-      setF(7.5,'bold'); clr(210,225,245); doc.text(rowLines, M+10, y+5.5);
-      if (r.note) { const noteY=y+5.5+rowLines.length*4.5; setF(7,'italic'); clr(140,155,175); doc.text(doc.splitTextToSize(r.note,CW-56), M+10, noteY); }
-      if (r.priority) { const priClr={A:[220,38,38],B:[215,115,5],C:[59,130,200]}[r.priority]||[100,130,180]; setF(7,'bold'); clr(...priClr); doc.text(`P${r.priority}`, M+CW-34, y+5.5); }
-      setF(8,'bold'); clr(61,219,145); doc.text(fmt$(r.cost), W-M-2, y+5.5, {align:'right'});
-      draw(22,35,55); doc.setLineWidth(0.15); doc.line(M,y+rowH,M+CW,y+rowH); y+=rowH;
+      if (i%2===0) { fill(248,250,252); doc.rect(M,y,CW,rowH,'F'); }
+      setF(7,'bold'); clr(100,116,139); doc.text(String(i+1), M+3, y+5.5);
+      setF(7.5,'bold'); clr(15,23,42); doc.text(rowLines, M+10, y+5.5);
+      if (r.note) { const noteY=y+5.5+rowLines.length*4.5; setF(7,'italic'); clr(100,116,139); doc.text(doc.splitTextToSize(r.note,CW-56), M+10, noteY); }
+      if (r.priority) { const priClr={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[r.priority]||[71,85,105]; setF(7,'bold'); clr(...priClr); doc.text(`P${r.priority}`, M+CW-34, y+5.5); }
+      setF(8,'bold'); clr(5,120,60); doc.text(fmt$(r.cost), W-M-2, y+5.5, {align:'right'});
+      draw(203,213,225); doc.setLineWidth(0.15); doc.line(M,y+rowH,M+CW,y+rowH); y+=rowH;
     });
 
     y+=4;
     const subtotal2=allCostItems.reduce((a,r)=>a+r.cost,0);
     const taxAmt2=taxSettings.enabled?subtotal2*taxSettings.rate/100:0;
     const total2=subtotal2+taxAmt2;
-    chk(9); fill(12,22,38); doc.rect(M,y,CW,8,'F');
-    setF(8,'bold'); clr(150,165,185); doc.text('SUBTOTAL', M+4, y+5.5);
-    setF(8,'bold'); clr(200,215,235); doc.text(fmt$(subtotal2), W-M-2, y+5.5, {align:'right'}); y+=8;
+    chk(9); fill(248,250,252); doc.rect(M,y,CW,8,'F');
+    setF(8,'bold'); clr(71,85,105); doc.text('SUBTOTAL', M+4, y+5.5);
+    setF(8,'bold'); clr(30,41,59); doc.text(fmt$(subtotal2), W-M-2, y+5.5, {align:'right'}); y+=8;
     if (taxSettings.enabled) {
-      chk(9); fill(12,22,38); doc.rect(M,y,CW,8,'F');
-      setF(8,'normal'); clr(150,165,185); doc.text(`HST / TAX (${taxSettings.rate}%)`, M+4, y+5.5);
-      setF(8,'normal'); clr(180,195,215); doc.text(fmt$(taxAmt2), W-M-2, y+5.5, {align:'right'}); y+=8;
+      chk(9); fill(248,250,252); doc.rect(M,y,CW,8,'F');
+      setF(8,'normal'); clr(71,85,105); doc.text(`HST / TAX (${taxSettings.rate}%)`, M+4, y+5.5);
+      setF(8,'normal'); clr(30,41,59); doc.text(fmt$(taxAmt2), W-M-2, y+5.5, {align:'right'}); y+=8;
     }
-    chk(11); fill(8,32,22); doc.rect(M,y,CW,10,'F');
-    fill(13,148,84); doc.rect(M,y,2.5,10,'F');
-    draw(13,148,84); doc.setLineWidth(0.4); doc.line(M,y,M+CW,y);
-    setF(9,'bold'); clr(61,219,145); doc.text('TOTAL ESTIMATED REPAIR COST', M+6, y+7);
-    setF(10,'bold'); clr(61,219,145); doc.text(fmt$(total2), W-M-2, y+7, {align:'right'}); y+=14;
-    setF(7,'normal'); clr(80,100,90);
+    chk(11); fill(240,253,244); doc.roundedRect(M,y,CW,10,2,2,'F');
+    draw(5,120,60); doc.setLineWidth(0.4); doc.roundedRect(M,y,CW,10,2,2,'S');
+    fill(5,120,60); doc.rect(M,y,2.5,10,'F');
+    setF(9,'bold'); clr(5,120,60); doc.text('TOTAL ESTIMATED REPAIR COST', M+6, y+7);
+    setF(10,'bold'); clr(5,120,60); doc.text(fmt$(total2), W-M-2, y+7, {align:'right'}); y+=14;
+    setF(7,'normal'); clr(100,116,139);
     doc.text(taxSettings.enabled
       ? `Tax calculated at ${taxSettings.rate}% (HST/GST). Toggle in report view to recalculate.`
       : `Tax not included. Toggle the tax option in the report view to add HST/GST.`, M, y);
