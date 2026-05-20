@@ -881,10 +881,11 @@ select.f-input { cursor: pointer; }
 
 /* ── ADD CUSTOM ITEM BUTTON ─────────────────────────────────── */
 .add-item-btn {
-  display: block; width: calc(100% - 36px); margin: 10px 18px; padding: 14px;
-  border-radius: var(--r); border: 1.5px dashed var(--border-hi);
-  background: transparent; color: var(--text-dim); font-family: var(--font-ui);
-  font-size: 15px; cursor: pointer; transition: var(--tr); text-align: center; min-height: 50px;
+  display: block; width: calc(100% - 36px); margin: 10px 18px; padding: 16px;
+  border-radius: 16px; border: 1.5px dashed var(--border-hi);
+  background: #0d1420; color: var(--text-dim); font-family: var(--font-ui);
+  font-size: 15px; cursor: pointer; transition: var(--tr); text-align: center; min-height: 54px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .add-item-btn:hover { border-color: var(--s-done-bd); color: var(--s-done-tx); background: var(--s-done-bg); }
 
@@ -1081,19 +1082,22 @@ select.f-input { cursor: pointer; }
     width: 100%;
     box-sizing: border-box;
   }
-  /* Each category capsule becomes a full-width card */
+  /* Each category capsule becomes a floating bubble card */
   .cat-cap {
     display: flex;
     flex-direction: row;
     align-items: center;
-    width: 100%;
-    padding: 14px 18px;
+    width: calc(100% - 20px);
+    margin: 0 10px;
+    padding: 16px 20px;
     min-height: 54px;
-    border-radius: var(--r);
+    border-radius: 16px;
     font-size: 15px;
     gap: 12px;
     box-sizing: border-box;
     white-space: normal;
+    background: #0d1420;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
   .cap-icon  { font-size: 20px; flex-shrink: 0; }
   .cap-label { font-size: 15px; font-weight: 600; flex: 1; }
@@ -1178,23 +1182,36 @@ select.f-input { cursor: pointer; }
 
   /* Category bar */
   .catbar-inner { padding: 8px 10px; }
-  .cat-cap { padding: 10px 14px; min-height: 46px; font-size: 14px; }
+ .cat-cap { padding: 16px 20px; min-height: 50px; font-size: 14px; border-radius: 16px; background: #0d1420; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
 
-  /* Hub grid — 1 column on very small screens, 2 on most phones */
-  .hub-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 10px; }
+  /* Hub grid — floating bubble cards */
+  .hub-grid { grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px 10px; }
   .hub-header { padding: 16px 12px 12px; }
   .hub-title { font-size: 22px; }
-  .hub-card { padding: 16px 14px; }
+  .hub-card {
+    padding: 20px 16px;
+    border-radius: 16px;
+    background: #0d1420;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    margin-bottom: 0;
+  }
   .hub-card-icon { font-size: 28px; }
   .hub-card-label { font-size: 14px; }
 
-  /* Work area / accordion */
-  .ctx-bar { flex-direction: column; align-items: flex-start; padding: 10px 12px; gap: 6px; }
+ /* Work area / accordion — floating bubble cards */
+  .ctx-bar { flex-direction: column; align-items: flex-start; padding: 10px 14px; gap: 6px; }
   #ctx-title { font-size: 18px; }
-  #accordion { padding: 8px 8px 80px; }
+  #accordion { padding: 10px 10px 80px; }
+  .acc-section {
+    border-radius: 16px;
+    margin-bottom: 16px;
+    background: #0d1420;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
   .acc-title { font-size: 16px; }
-  .acc-header { padding: 14px 12px; min-height: 54px; }
-  .item-row { padding: 14px 10px; gap: 10px; min-height: 60px; }
+  .acc-header { padding: 16px 20px; min-height: 54px; }
+  .item-row { padding: 16px 20px; gap: 10px; min-height: 60px; }
   .item-label { font-size: 16px; line-height: 1.45; }
   .item-num { width: 22px; }
   .pill-btn { min-width: 130px; font-size: 14px; padding: 12px 14px; min-height: 50px; }
@@ -1265,10 +1282,19 @@ select.f-input { cursor: pointer; }
   .hub-header { padding: 20px 16px 12px; }
   .hub-title { font-size: 26px; }
 
-  /* Work area */
+  /* Work area — floating bubble cards on tablet */
   .ctx-bar { padding: 12px 16px; }
   #ctx-title { font-size: 19px; }
-  #accordion { padding: 12px 14px 80px; }
+  #accordion { padding: 12px 12px 80px; }
+  .acc-section {
+    border-radius: 16px;
+    margin-bottom: 16px;
+    background: #0d1420;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
+  .acc-header { padding: 16px 20px; }
+  .add-item-btn { border-radius: 16px; padding: 16px; background: #0d1420; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
 
   /* Report */
   #report-panel { padding: 18px 16px 60px; }
