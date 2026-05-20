@@ -10,38 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="stylesheet" href="style.css">
-<style>
-/* ── Quick-jump arrows on accordion section headers ── */
-.acc-jump-arrows {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-left: 8px;
-  flex-shrink: 0;
-}
-.acc-jump-btn {
-  background: rgba(255,255,255,.06);
-  border: 1px solid var(--border, rgba(255,255,255,.12));
-  border-radius: 4px;
-  color: var(--text-dim, #8aa0b8);
-  cursor: pointer;
-  font-size: 10px;
-  line-height: 1;
-  padding: 3px 6px;
-  transition: background .15s, color .15s, border-color .15s;
-  user-select: none;
-}
-.acc-jump-btn:hover {
-  background: var(--accent, #c0192c);
-  border-color: var(--accent, #c0192c);
-  color: #fff;
-}
-.acc-jump-spacer {
-  display: inline-block;
-  width: 24px;
-  height: 20px;
-}
-</style>
+
 </head>
 <body>
 <div class="app">
@@ -112,15 +81,19 @@
   <!-- ═══════════════════════════════════════════════════════════
        CATEGORY CAPSULE BAR  +  FILTER PILLS
   ═══════════════════════════════════════════════════════════ -->
-  <div class="catbar">
-    <div class="catbar-inner">
-      <div class="filter-row">
-        <button class="filter-pill active" data-filter="all">All</button>
-        <button class="filter-pill" data-filter="remaining">Remaining</button>
-        <button class="filter-pill" data-filter="findings">Findings</button>
+  <div class="catbar-wrapper">
+    <button class="catbar-scroll-btn catbar-scroll-left" id="catbar-scroll-left" aria-label="Scroll left">&#8249;</button>
+    <div class="catbar">
+      <div class="catbar-inner">
+        <div class="filter-row">
+          <button class="filter-pill active" data-filter="all">All</button>
+          <button class="filter-pill" data-filter="remaining">Remaining</button>
+          <button class="filter-pill" data-filter="findings">Findings</button>
+        </div>
+        <div id="cat-bar"></div>
       </div>
-      <div id="cat-bar"></div>
     </div>
+    <button class="catbar-scroll-btn catbar-scroll-right" id="catbar-scroll-right" aria-label="Scroll right">&#8250;</button>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════
