@@ -197,13 +197,19 @@ function renderDashboard() {
         </div>`;
     }).join('');
 
-    dash.innerHTML = `
-      <div class="dash-header">
-        <h2 style="margin:0;font-size:20px;color:var(--text)">📂 Projects</h2>
-        <button onclick="showView('splash')" class="dash-new-btn">+ New Survey</button>
-      </div>
-      <div class="dash-grid">${cards}</div>
-    `;
+    // Populate the dedicated projects list container if it exists
+    const listContainer = document.getElementById('dashboard-projects-list');
+    if (listContainer) {
+      listContainer.innerHTML = cards;
+    } else {
+      dash.innerHTML = `
+        <div class="dash-header">
+          <h2 style="margin:0;font-size:20px;color:var(--text)">📂 Projects</h2>
+          <button onclick="showView('splash')" class="dash-new-btn">+ New Survey</button>
+        </div>
+        <div class="dash-grid">${cards}</div>
+      `;
+    }
   });
 }
 
@@ -905,7 +911,13 @@ const Nav = {
       showView(this.stack[this.stack.length - 1]);
       refreshAll(); return;
     }
-    if (this.current() === 'hub') { showBackToSplashConfirm(); return; }
+    if (this.current() === 'hub') {
+      // Hub → Dashboard (not Splash)
+      Nav.stack = ['dashboard'];
+      showView('dashboard');
+      renderDashboard();
+      return;
+    }
     if (this.current() === 'dashboard') { showBackToSplashConfirm(); return; }
     if (this.stack.length > 1) this.stack.pop();
     showView(this.stack[this.stack.length - 1]);
@@ -942,7 +954,7 @@ function showBackToSplashConfirm() {
   box.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px 28px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);';
   box.innerHTML =
     '<div style="font-size:28px;margin-bottom:12px">⚓</div>' +
-    '<div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Return to Client Setup?</div>' +
+    '<div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Return to Dashboard?</div>' +
     '<div style="font-size:13px;color:var(--text-dim);margin-bottom:24px">Your inspection progress is saved. You can return to the survey at any time.</div>' +
     '<div style="display:flex;gap:12px;justify-content:center;">' +
       '<button id="nav-confirm-cancel" style="flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:14px;">Stay Here</button>' +
@@ -952,8 +964,9 @@ function showBackToSplashConfirm() {
   document.body.appendChild(overlay);
   document.getElementById('nav-confirm-yes').addEventListener('click', () => {
     overlay.remove();
-    while (Nav.stack.length > 1) Nav.stack.pop();
-    showView('splash');
+    Nav.stack = ['dashboard'];
+    showView('dashboard');
+    renderDashboard();
   });
   document.getElementById('nav-confirm-cancel').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
@@ -1802,11 +1815,36 @@ async function generatePDF(mode) {
   const W=210, M=15, CW=W-M*2;
   let y=0;
 
+  // ── HORIZON DARK THEME COLORS ─────────────────────────────────
+  const C = {
+    bg:       [4, 7, 12],        // #04070c  — page background
+    card:     [13, 20, 32],      // #0d1420  — card backgrounds
+    cardBrd:  [26, 37, 53],      // #1a2535  — card borders
+    text:     [244, 241, 235],   // #f4f1eb  — warm white text
+    textDim:  [148, 163, 184],   // #94a3b8  — muted text
+    accent:   [212, 175, 55],    // #d4af37  — gold accent
+    accentDim:[161, 139, 72],    // #a18b48  — dim gold
+    priA:     [192, 25, 44],     // #c0192c  — red critical
+    priB:     [161, 75, 0],      // #a14b00  — orange maintenance
+    priC:     [37, 99, 235],      // #2563eb  — blue observation
+    done:     [5, 120, 60],      // #05783c  — green done
+    na:       [71, 85, 105],      // #475569  — gray N/A
+    progress: [161, 75, 0],      // #a14b00  — amber in-progress
+    photoBg:  [10, 18, 32],      // #0a1220  — photo letterbox
+    line:     [26, 37, 53],      // #1a2535  — divider lines
+    lineLight:[38, 55, 77],      // #26374d  — lighter dividers
+  };
+
   const setF = (sz, style) => { doc.setFontSize(sz); doc.setFont('helvetica', style||'normal'); };
   const clr  = (r,g,b) => doc.setTextColor(r,g,b);
   const fill = (r,g,b) => doc.setFillColor(r,g,b);
   const draw = (r,g,b) => doc.setDrawColor(r,g,b);
   const fmt$ = n => '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  // Helper: draw dark page background on every new page
+  const darkPage = () => {
+    fill(...C.bg); doc.rect(0, 0, W, 297, 'F');
+  };
 
   const I = {
     vessel:   $('v-name').value    || 'Unnamed Vessel',
@@ -1856,65 +1894,69 @@ async function generatePDF(mode) {
     for (const f of arr) { f.photo = await resolvePhoto(f.photo); }
   }
 
-  const chk = (n=10) => { if(y+n>284){ doc.addPage(); y=22; } };
+  const chk = (n=10) => { if(y+n>284){ doc.addPage(); darkPage(); y=22; } };
 
   const drawFooter = () => {
     const pages = doc.getNumberOfPages();
     for (let i=1; i<=pages; i++) {
       doc.setPage(i);
-      draw(30,60,120); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
-      setF(6,'normal'); clr(100,116,139);
+      draw(...C.line); doc.setLineWidth(0.3); doc.line(M,286,W-M,286);
+      setF(6,'normal'); clr(...C.textDim);
       doc.text(COMPANY_NAME, M, 290);
       doc.text(`Page ${i} of ${pages}`, W-M, 290, {align:'right'});
 
       // Watermark on preview mode
       if (isPreview) {
         doc.saveGraphicsState();
-        doc.setGState(new doc.GState({ opacity: 0.08 }));
-        setF(48,'bold'); clr(30,58,138);
+        doc.setGState(new doc.GState({ opacity: 0.06 }));
+        setF(48,'bold'); clr(...C.accent);
         doc.text('PREVIEW', W/2, 150, {align:'center', angle: 45});
         doc.restoreGraphicsState();
       }
     }
   };
 
-  // ── Cover — Horizon light-mode ───────────────────────────────
-  fill(255,255,255); doc.rect(0,0,210,297,'F');
+  // ═══════════════════════════════════════════════════════════════
+  // COVER PAGE — Dark Horizon
+  // ═══════════════════════════════════════════════════════════════
+  darkPage();
 
-  // Navy accent bar at top
-  fill(30,58,138); doc.rect(0,0,210,3,'F');
+  // Gold accent bar at top
+  fill(...C.accent); doc.rect(0,0,210,2,'F');
 
-  let logoBottom = 18;
+  let logoBottom = 14;
   const hasLogo = COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64 !== 'PLACEHOLDER_LOGO_BASE64';
   if (hasLogo) {
-    try { doc.addImage('data:image/jpeg;base64,' + COMPANY_LOGO_BASE64, 'JPEG', W / 2 - 28, 8, 56, 28); logoBottom = 38; } catch (e) { }
+    try { doc.addImage('data:image/jpeg;base64,' + COMPANY_LOGO_BASE64, 'JPEG', W / 2 - 28, 6, 56, 28); logoBottom = 36; } catch (e) { }
   }
 
-  setF(8,'bold'); clr(30,58,138); doc.text(COMPANY_NAME, W/2, logoBottom+5, {align:'center'});
-  fill(30,58,138); doc.rect(M, logoBottom+9, CW, 1.2, 'F');
-  setF(22,'bold'); clr(15,23,42); doc.text(I.vessel, W/2, logoBottom+24, {align:'center'});
-  setF(10,'normal'); clr(71,85,105); doc.text(I.type, W/2, logoBottom+33, {align:'center'});
-  setF(9,'normal');  clr(100,116,139); doc.text(fmtDate, W/2, logoBottom+41, {align:'center'});
+  // Company name in gold (only once — no duplicate)
+  setF(8,'bold'); clr(...C.accent); doc.text(COMPANY_NAME, W/2, logoBottom+4, {align:'center'});
+  fill(...C.accent); doc.rect(M, logoBottom+8, CW, 0.8, 'F');
 
-  let photoBottom = logoBottom + 50;
+  setF(22,'bold'); clr(...C.text); doc.text(I.vessel, W/2, logoBottom+22, {align:'center'});
+  setF(10,'normal'); clr(...C.textDim); doc.text(I.type, W/2, logoBottom+31, {align:'center'});
+  setF(9,'normal');  clr(...C.textDim); doc.text(fmtDate, W/2, logoBottom+39, {align:'center'});
+
+  let photoBottom = logoBottom + 48;
   if (vesselPhotoData) {
     try {
-      // Card shadow effect: light gray border rect behind image
-      // Enforce contain-fit: compute scaled dims to fill CW×80 without stretching
       const _tmpImg = new Image();
       await new Promise(res => { _tmpImg.onload = res; _tmpImg.onerror = res; _tmpImg.src = vesselPhotoData; });
       const _ih = _tmpImg.naturalHeight || 1, _iw = _tmpImg.naturalWidth || 1;
       const _maxW = CW, _maxH = 80;
       const _scale = Math.min(_maxW / _iw, _maxH / _ih);
       const _dw = _iw * _scale, _dh = _ih * _scale;
-      const _dx = M + (_maxW - _dw) / 2; // center horizontally
-      fill(226,232,240); doc.roundedRect(M-1, photoBottom-1, CW+2, _maxH+2, 2, 2, 'F');
-      doc.addImage(vesselPhotoData,'JPEG',_dx,photoBottom,_dw,_dh,undefined,'FAST');
+      const _dx = M + (_maxW - _dw) / 2;
+      // Dark letterbox background
+      fill(...C.photoBg); doc.roundedRect(M, photoBottom, CW, _maxH, 2, 2, 'F');
+      draw(...C.cardBrd); doc.setLineWidth(0.3); doc.roundedRect(M, photoBottom, CW, _maxH, 2, 2, 'S');
+      doc.addImage(vesselPhotoData,'JPEG',_dx,photoBottom+(_maxH-_dh)/2,_dw,_dh,undefined,'FAST');
       photoBottom += _maxH + 5;
     } catch(e) {}
   }
 
-  // Info rows — light mode
+  // Info rows — dark cards
   const ROW_H=8, TEXT_OFFSET=5, COL_KEY_W=44, COL_VAL_X=M+COL_KEY_W+2;
   const infoRows=[
     ['VESSEL',I.vessel],['HIN / HULL ID',I.hin],['SURVEYOR',I.surveyor],
@@ -1923,34 +1965,33 @@ async function generatePDF(mode) {
   let iy = photoBottom + 5;
   infoRows.forEach(([k,v], rowIdx) => {
     const rowTop = iy;
-    if (rowIdx%2===0) { fill(241,245,249); doc.rect(M,rowTop,CW,ROW_H,'F'); }
-    else              { fill(255,255,255); doc.rect(M,rowTop,CW,ROW_H,'F'); }
-    setF(7,'bold'); clr(71,85,105); doc.text(k, M+3, rowTop+TEXT_OFFSET);
-    setF(7.5,'normal'); clr(15,23,42);
+    fill(...C.card); doc.roundedRect(M,rowTop,CW,ROW_H,1,1,'F');
+    setF(7,'bold'); clr(...C.textDim); doc.text(k, M+3, rowTop+TEXT_OFFSET);
+    setF(7.5,'normal'); clr(...C.text);
     const valLines = doc.splitTextToSize(String(v), CW-COL_KEY_W-6);
     doc.text(valLines, COL_VAL_X, rowTop+TEXT_OFFSET);
-    draw(203,213,225); doc.setLineWidth(0.2); doc.line(M,rowTop+ROW_H,M+CW,rowTop+ROW_H);
+    draw(...C.cardBrd); doc.setLineWidth(0.2); doc.line(M,rowTop+ROW_H,M+CW,rowTop+ROW_H);
     iy += Math.max(ROW_H, valLines.length*ROW_H);
   });
 
   // Rounded card border around info table
-  draw(203,213,225); doc.setLineWidth(0.4); doc.roundedRect(M, photoBottom+5, CW, iy-(photoBottom+5), 2,2,'S');
+  draw(...C.cardBrd); doc.setLineWidth(0.4); doc.roundedRect(M, photoBottom+5, CW, iy-(photoBottom+5), 2,2,'S');
 
   iy += 7;
   const STATS_COLS=3, STATS_ROWS=2, CARD_W=CW/STATS_COLS, CARD_H=18, statsBandH=STATS_ROWS*CARD_H+4;
-  fill(248,250,252); doc.roundedRect(M,iy,CW,statsBandH,2,2,'F');
-  draw(203,213,225); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,statsBandH,2,2,'S');
-  fill(30,58,138); doc.rect(M,iy,2.5,statsBandH,'F');
+  fill(...C.card); doc.roundedRect(M,iy,CW,statsBandH,2,2,'F');
+  draw(...C.cardBrd); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,statsBandH,2,2,'S');
+  fill(...C.accent); doc.rect(M,iy,2.5,statsBandH,'F');
   const sts  = [`${pct}%`,`${F.A.length}`,`${F.B.length}`,`${F.C.length}`,`${g.done}`,`${g.na}`];
   const stl  = ['Complete','Pri A','Pri B','Pri C','Done','N/A'];
-  const stcl = [[30,58,138],[192,25,44],[180,90,0],[37,99,235],[5,120,60],[71,85,105]];
+  const stcl = [C.accent, C.priA, C.priB, C.priC, C.done, C.na];
   sts.forEach((v,i) => {
     const col=i%STATS_COLS, row=Math.floor(i/STATS_COLS);
     const cx=M+col*CARD_W+CARD_W/2, cy=iy+row*CARD_H+CARD_H*0.52;
-    if (col>0) { draw(203,213,225); doc.setLineWidth(0.3); doc.line(M+col*CARD_W,iy+2,M+col*CARD_W,iy+statsBandH-2); }
-    if (row===1&&col===0) { draw(203,213,225); doc.setLineWidth(0.3); doc.line(M+3,iy+CARD_H,M+CW,iy+CARD_H); }
+    if (col>0) { draw(...C.cardBrd); doc.setLineWidth(0.3); doc.line(M+col*CARD_W,iy+2,M+col*CARD_W,iy+statsBandH-2); }
+    if (row===1&&col===0) { draw(...C.cardBrd); doc.setLineWidth(0.3); doc.line(M+3,iy+CARD_H,M+CW,iy+CARD_H); }
     setF(10,'bold');  clr(...stcl[i]); doc.text(v, cx, cy, {align:'center'});
-    setF(6,'normal'); clr(100,116,139); doc.text(stl[i], cx, cy+4.5, {align:'center'});
+    setF(6,'normal'); clr(...C.textDim); doc.text(stl[i], cx, cy+4.5, {align:'center'});
   });
 
   const allCostItems = getAllCostItems();
@@ -1959,62 +2000,65 @@ async function generatePDF(mode) {
     const subtotal=allCostItems.reduce((a,r)=>a+r.cost,0);
     const taxAmt=taxSettings.enabled ? subtotal*taxSettings.rate/100 : 0;
     const total=subtotal+taxAmt, COST_H=taxSettings.enabled?28:22;
-    fill(240,253,244); doc.roundedRect(M,iy,CW,COST_H,2,2,'F');
-    draw(187,247,208); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,COST_H,2,2,'S');
-    fill(5,120,60); doc.rect(M,iy,2.5,COST_H,'F');
-    setF(7,'bold'); clr(5,120,60); doc.text('ESTIMATED REPAIR COSTS', M+6, iy+6);
-    setF(7,'normal'); clr(71,85,105);
+    fill(...C.card); doc.roundedRect(M,iy,CW,COST_H,2,2,'F');
+    draw(...C.cardBrd); doc.setLineWidth(0.4); doc.roundedRect(M,iy,CW,COST_H,2,2,'S');
+    fill(...C.done); doc.rect(M,iy,2.5,COST_H,'F');
+    setF(7,'bold'); clr(...C.done); doc.text('ESTIMATED REPAIR COSTS', M+6, iy+6);
+    setF(7,'normal'); clr(...C.textDim);
     doc.text(`${allCostItems.length} item${allCostItems.length!==1?'s':''} flagged`, M+6, iy+12);
     if (taxSettings.enabled) {
       doc.text(`Subtotal: ${fmt$(subtotal)}`, M+6, iy+17);
       doc.text(`HST ${taxSettings.rate}%: ${fmt$(taxAmt)}`, M+6, iy+22);
     }
-    setF(9,'bold'); clr(5,120,60);
+    setF(9,'bold'); clr(...C.done);
     doc.text(fmt$(total), W-M-3, iy+(taxSettings.enabled?20:12), {align:'right'});
-    setF(6,'normal'); clr(71,85,105);
+    setF(6,'normal'); clr(...C.textDim);
     doc.text(taxSettings.enabled?'TOTAL INC. TAX':'SUBTOTAL', W-M-3, iy+(taxSettings.enabled?25:17), {align:'right'});
   }
 
-  // ── Page 2: TOC — light mode ──────────────────────────────────
-  doc.addPage(); y=22;
-  fill(255,255,255); doc.rect(0,0,210,297,'F');
-  setF(14,'bold'); clr(15,23,42); doc.text('TABLE OF CONTENTS', M, y); y+=6;
-  fill(30,58,138); doc.rect(M,y,CW,1,'F'); y+=8;
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 2: TABLE OF CONTENTS — Dark Horizon
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage(); darkPage(); y=22;
+  setF(14,'bold'); clr(...C.text); doc.text('TABLE OF CONTENTS', M, y); y+=6;
+  fill(...C.accent); doc.rect(M,y,CW,0.8,'F'); y+=8;
   DB.forEach(cat => {
     chk(9);
     const st=getStats(catItems(cat));
     const cp=st.total?Math.round(((st.done+st.na)/st.total)*100):0;
-    const cpClr = cp>=80?[5,120,60]:cp>=40?[161,75,0]:[192,25,44];
-    // Alternating light rows
-    if (DB.indexOf(cat)%2===0){ fill(248,250,252); doc.rect(M,y-5,CW,8,'F'); }
-    setF(8.5,'normal'); clr(30,41,59); doc.text(cat.label, M+3, y);
+    const cpClr = cp>=80?C.done:cp>=40?C.progress:C.priA;
+    fill(...C.card); doc.roundedRect(M,y-5,CW,8,1,1,'F');
+    setF(8.5,'normal'); clr(...C.text); doc.text(cat.label, M+3, y);
     setF(8.5,'bold'); clr(...cpClr); doc.text(`${st.done+st.na}/${st.total}  ${cp}%`, W-M, y, {align:'right'});
-    // Dot leader
+    // Proper dot leaders
     const labelW = doc.getTextWidth(cat.label) + 6;
     const scoreW = doc.getTextWidth(`${st.done+st.na}/${st.total}  ${cp}%`) + 4;
     const dotStart = M + 3 + labelW;
     const dotEnd   = W - M - scoreW;
     if (dotEnd > dotStart + 4) {
-      setF(8,'normal'); clr(148,163,184);
-      const dots = '.'.repeat(Math.floor((dotEnd - dotStart) / doc.getTextWidth('.')));
+      setF(8,'normal'); clr(...C.textDim);
+      const dotW = doc.getTextWidth('.');
+      const dotCount = Math.floor((dotEnd - dotStart) / dotW);
+      const dots = '.'.repeat(dotCount);
       doc.text(dots, dotStart, y);
     }
     y+=8;
   });
 
-  // ── Page 3: Findings — light mode ────────────────────────────
-  doc.addPage(); y=22;
-  fill(255,255,255); doc.rect(0,0,210,297,'F');
-  setF(12,'bold'); clr(15,23,42); doc.text('FINDINGS & DEFICIENCIES', M, y); y+=5;
-  fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
+  // ═══════════════════════════════════════════════════════════════
+  // PAGE 3: FINDINGS — Dark Horizon
+  // ═══════════════════════════════════════════════════════════════
+  doc.addPage(); darkPage(); y=22;
+  setF(12,'bold'); clr(...C.text); doc.text('FINDINGS & DEFICIENCIES', M, y); y+=5;
+  fill(...C.accent); doc.rect(M,y,CW,0.8,'F'); y+=8;
   const allF=[...F.A.map(f=>({...f,p:'A'})),...F.B.map(f=>({...f,p:'B'})),...F.C.map(f=>({...f,p:'C'}))];
   if (!allF.length) {
-    setF(9,'normal'); clr(5,120,60);
+    setF(9,'normal'); clr(...C.done);
     doc.text('No findings or deficiencies were flagged during this inspection.', M, y); y+=10;
   } else {
     const F_COST_X=W-M-2, F_COST_W=24, F_TEXT_W=CW-8-F_COST_W-2;
-    const pc={A:[192,25,44],B:[161,75,0],C:[37,99,235]};
-    const pcBg={A:[255,241,241],B:[255,247,237],C:[239,246,255]};
+    const pc={A:C.priA,B:C.priB,C:C.priC};
+    const pcBg={A:[32,8,10],B:[28,16,6],C:[8,16,32]};
     for (const f of allF) {
       const hasCost = f.cost > 0;
       chk(f.photo ? 28 : 22);
@@ -2022,17 +2066,17 @@ async function generatePDF(mode) {
       draw(...pc[f.p]); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,16,2,2,'S');
       fill(...pc[f.p]); doc.rect(M,y,2.5,16,'F');
       setF(7,'bold'); clr(...pc[f.p]); doc.text(`PRIORITY ${f.p}`, M+5, y+5);
-      if (hasCost) { setF(8,'bold'); clr(5,120,60); doc.text(fmt$(f.cost), F_COST_X, y+5, {align:'right'}); }
-      setF(7,'normal'); clr(71,85,105); doc.text(`${f.cat}  >  ${f.sub}`, M+5, y+11);
-      setF(9,'bold'); clr(15,23,42);
+      if (hasCost) { setF(8,'bold'); clr(...C.done); doc.text(fmt$(f.cost), F_COST_X, y+5, {align:'right'}); }
+      setF(7,'normal'); clr(...C.textDim); doc.text(`${f.cat}  >  ${f.sub}`, M+5, y+11);
+      setF(9,'bold'); clr(...C.text);
       const il = doc.splitTextToSize(f.item, hasCost ? F_TEXT_W : CW-8);
       doc.text(il, M+5, y+17); y += 17 + il.length*4.5;
       if (f.note) {
         chk(8);
         const nl=doc.splitTextToSize(`"${f.note}"`, CW-10);
-        setF(8,'italic'); clr(71,85,105); doc.text(nl, M+5, y); y+=nl.length*4.5+2;
+        setF(8,'italic'); clr(...C.textDim); doc.text(nl, M+5, y); y+=nl.length*4.5+2;
       }
-     if (f.photo) {
+      if (f.photo) {
         try {
           const _fi = new Image();
           await new Promise(res => { _fi.onload = res; _fi.onerror = res; _fi.src = f.photo; });
@@ -2042,27 +2086,30 @@ async function generatePDF(mode) {
           const _fdw = _fiw * _fScale, _fdh = _fih * _fScale;
           const _fdx = M + 1 + (_fMaxW - _fdw) / 2;
           chk(_fdh + 6);
-          fill(241,245,249); doc.roundedRect(M, y, CW, _fdh + 2, 2, 2, 'F');
+          fill(...C.photoBg); doc.roundedRect(M, y, CW, _fdh + 2, 2, 2, 'F');
+          draw(...C.cardBrd); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, _fdh + 2, 2, 2, 'S');
           doc.addImage(f.photo, 'JPEG', _fdx, y + 1, _fdw, _fdh, undefined, 'FAST');
           y += _fdh + 4;
         } catch(e) {}
       }
-      draw(203,213,225); doc.line(M+3,y+2,M+CW,y+2); y+=7;
+      draw(...C.line); doc.line(M+3,y+2,M+CW,y+2); y+=7;
     }
   }
 
-  // ── Detail breakdown — light mode ────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // DETAIL BREAKDOWN — Dark Horizon
+  // ═══════════════════════════════════════════════════════════════
   const pdfAppendixItems = [];
   for (const cat of DB) {
     chk(14);
-    fill(241,245,249); doc.roundedRect(M,y,CW,9,2,2,'F');
-    draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,9,2,2,'S');
-    fill(30,58,138); doc.rect(M,y,2.5,9,'F');
-    setF(9,'bold'); clr(15,23,42); doc.text(cat.label.toUpperCase(), M+5, y+6); y+=12;
+    fill(...C.card); doc.roundedRect(M,y,CW,9,2,2,'F');
+    draw(...C.cardBrd); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,9,2,2,'S');
+    fill(...C.accent); doc.rect(M,y,2.5,9,'F');
+    setF(9,'bold'); clr(...C.text); doc.text(cat.label.toUpperCase(), M+5, y+6); y+=12;
     for (const sub of cat.subcategories) {
       chk(9);
-      fill(248,250,252); doc.rect(M,y,CW,7,'F');
-      setF(8,'bold'); clr(30,58,138); doc.text(sub.label, M+4, y+5); y+=9;
+      fill(...C.card); doc.rect(M,y,CW,7,1,1,'F');
+      setF(8,'bold'); clr(...C.accent); doc.text(sub.label, M+4, y+5); y+=9;
 
       if (includeAll) {
         // ── FULL mode: render every item row ──────────────────────
@@ -2070,15 +2117,16 @@ async function generatePDF(mode) {
           chk(7);
           const s=State.items[item.id];
           const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
-          const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
+          const sc={null:C.textDim,progress:C.progress,done:C.done,na:C.na}[s.status]||C.textDim;
           setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
-          setF(7,'normal'); clr(30,41,59);
+          setF(7,'normal'); clr(...C.text);
           const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
+          // ONLY show priority tag for flagged findings (active finding)
           if (s.finding.active) {
-            const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
+            const fc={A:C.priA,B:C.priB,C:C.priC}[s.finding.priority||'C'];
             const hasCost2 = s.finding.cost && parseFloat(s.finding.cost)>0;
             if (hasCost2) {
-              setF(7,'bold'); clr(5,120,60); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
+              setF(7,'bold'); clr(...C.done); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
               setF(7,'bold'); clr(...fc); doc.text(`[P${s.finding.priority||'C'}]`, W-M-2-18, y+4.5, {align:'right'});
             } else { setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'}); }
           }
@@ -2086,12 +2134,12 @@ async function generatePDF(mode) {
           if (s.finding.active && s.finding.note) {
             chk(6);
             const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
-            setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+            setF(7,'italic'); clr(...C.textDim); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
           }
-          draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
+          draw(...C.line); doc.line(M+12,y,M+CW,y); y+=2;
         }
       } else {
-        // ── COMPRESSED mode: summarize satisfactory, collect findings for appendix ──
+        // ── COMPRESSED mode ─────────────────────────────────────────
         const satNames = [];
         for (const item of sub.items) {
           const s = State.items[item.id];
@@ -2101,12 +2149,13 @@ async function generatePDF(mode) {
           } else {
             chk(7);
             const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
-            const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
+            const sc={null:C.textDim,progress:C.progress,done:C.done,na:C.na}[s.status]||C.textDim;
             setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
-            setF(7,'normal'); clr(30,41,59);
+            setF(7,'normal'); clr(...C.text);
             const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
+            // ONLY show priority tag for flagged findings
             if (s.finding.active) {
-              const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
+              const fc={A:C.priA,B:C.priB,C:C.priC}[s.finding.priority||'C'];
               setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'});
               if (s.finding.photo || s.finding.note || s.finding.priority) {
                 pdfAppendixItems.push({
@@ -2120,16 +2169,17 @@ async function generatePDF(mode) {
             if (s.finding.active && s.finding.note) {
               chk(6);
               const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
-              setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+              setF(7,'italic'); clr(...C.textDim); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
             }
-            draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
+            draw(...C.line); doc.line(M+12,y,M+CW,y); y+=2;
           }
         }
         if (satNames.length) {
           chk(8);
           const satLine = doc.splitTextToSize(`✓ Found Satisfactory: ${satNames.join(', ')}.`, CW-4);
-          fill(240,253,244); doc.roundedRect(M,y,CW,satLine.length*4+4,2,2,'F');
-          setF(7,'normal'); clr(5,120,60); doc.text(satLine, M+3, y+4); y+=satLine.length*4+6;
+          fill(...[8,24,16]); doc.roundedRect(M,y,CW,satLine.length*4+4,2,2,'F');
+          draw(...C.done); doc.setLineWidth(0.3); doc.roundedRect(M,y,CW,satLine.length*4+4,2,2,'S');
+          setF(7,'normal'); clr(...C.done); doc.text(satLine, M+3, y+4); y+=satLine.length*4+6;
         }
       }
       y+=3;
@@ -2139,10 +2189,9 @@ async function generatePDF(mode) {
 
   // ── Findings Appendix (compressed mode only) ─────────────────
   if (!includeAll && pdfAppendixItems.length) {
-    doc.addPage(); y=22;
-    fill(255,255,255); doc.rect(0,0,210,297,'F');
-    setF(12,'bold'); clr(15,23,42); doc.text('FINDINGS & PHOTOS APPENDIX', M, y); y+=5;
-    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
+    doc.addPage(); darkPage(); y=22;
+    setF(12,'bold'); clr(...C.text); doc.text('FINDINGS & PHOTOS APPENDIX', M, y); y+=5;
+    fill(...C.accent); doc.rect(M,y,CW,0.8,'F'); y+=8;
     const APX_COLS=2, APX_CARD_W=(CW-6)/APX_COLS, APX_PHOTO_H=40;
     let apxCol=0, apxRowTop=y;
     for (const f of pdfAppendixItems) {
@@ -2152,8 +2201,8 @@ async function generatePDF(mode) {
         chk(cardH+2); apxRowTop=y;
       }
       const cardX = M + apxCol*(APX_CARD_W+6);
-      fill(248,250,252); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'F');
-      draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'S');
+      fill(...C.card); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'F');
+      draw(...C.cardBrd); doc.setLineWidth(0.3); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'S');
       let cy=apxRowTop+4;
       if (resolvedPhoto) {
         try {
@@ -2163,65 +2212,67 @@ async function generatePDF(mode) {
           const _scale=Math.min(APX_CARD_W/_aw, APX_PHOTO_H/_ah);
           const _dw=_aw*_scale, _dh=_ah*_scale;
           const _dx=cardX+(APX_CARD_W-_dw)/2;
-          fill(226,232,240); doc.roundedRect(cardX+1,cy,APX_CARD_W-2,APX_PHOTO_H,1,1,'F');
+          fill(...C.photoBg); doc.roundedRect(cardX+1,cy,APX_CARD_W-2,APX_PHOTO_H,1,1,'F');
+          draw(...C.cardBrd); doc.setLineWidth(0.3); doc.roundedRect(cardX+1,cy,APX_CARD_W-2,APX_PHOTO_H,1,1,'S');
           doc.addImage(resolvedPhoto,'JPEG',_dx,cy+(APX_PHOTO_H-_dh)/2,_dw,_dh,undefined,'FAST');
           cy+=APX_PHOTO_H+3;
         } catch(e) { cy+=2; }
       }
-      const pc={A:[192,25,44],B:[161,75,0],C:[37,99,235]};
-      if (f.priority) { setF(6,'bold'); clr(...(pc[f.priority]||[71,85,105])); doc.text(`PRI ${f.priority}`, cardX+2, cy+3); }
-      setF(6.5,'bold'); clr(15,23,42);
+      const pc={A:C.priA,B:C.priB,C:C.priC};
+      if (f.priority) { setF(6,'bold'); clr(...(pc[f.priority]||C.textDim)); doc.text(`PRI ${f.priority}`, cardX+2, cy+3); }
+      setF(6.5,'bold'); clr(...C.text);
       const il=doc.splitTextToSize(f.item, APX_CARD_W-4); doc.text(il, cardX+2, cy+(f.priority?7:4));
-      if (f.note) { setF(6,'italic'); clr(100,116,139); const nl=doc.splitTextToSize(f.note, APX_CARD_W-4); doc.text(nl, cardX+2, cy+(f.priority?7:4)+il.length*3.5); }
+      if (f.note) { setF(6,'italic'); clr(...C.textDim); const nl=doc.splitTextToSize(f.note, APX_CARD_W-4); doc.text(nl, cardX+2, cy+(f.priority?7:4)+il.length*3.5); }
       apxCol++;
       if (apxCol >= APX_COLS) { apxCol=0; y=apxRowTop+cardH+4; }
     }
     if (apxCol > 0) y=apxRowTop+((pdfAppendixItems.length%APX_COLS===0?0:1)*60)+4;
   }
 
-  // ── Repair cost estimate page — light mode ────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // REPAIR COST ESTIMATE — Dark Horizon
+  // ═══════════════════════════════════════════════════════════════
   if (allCostItems.length) {
-    doc.addPage(); y=22;
-    fill(255,255,255); doc.rect(0,0,210,297,'F');
-    setF(12,'bold'); clr(15,23,42); doc.text('REPAIR COST ESTIMATE', M, y); y+=5;
-    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
+    doc.addPage(); darkPage(); y=22;
+    setF(12,'bold'); clr(...C.text); doc.text('REPAIR COST ESTIMATE', M, y); y+=5;
+    fill(...C.accent); doc.rect(M,y,CW,0.8,'F'); y+=8;
     const TH=7;
-    fill(241,245,249); doc.rect(M,y,CW,TH,'F');
-    setF(7,'bold'); clr(71,85,105);
+    fill(...C.card); doc.rect(M,y,CW,TH,'F');
+    setF(7,'bold'); clr(...C.textDim);
     doc.text('#', M+3, y+5); doc.text('ITEM / DESCRIPTION', M+10, y+5);
     doc.text('PRI', M+CW-36, y+5); doc.text('EST. COST', W-M-2, y+5, {align:'right'});
-    draw(30,58,138); doc.setLineWidth(0.4); doc.line(M,y+TH,M+CW,y+TH); y+=TH+2;
+    draw(...C.accent); doc.setLineWidth(0.4); doc.line(M,y+TH,M+CW,y+TH); y+=TH+2;
 
     allCostItems.forEach((r,i) => {
       const rowLines=doc.splitTextToSize(r.item, CW-56);
       const rowH=Math.max(9, rowLines.length*4.5+4); chk(rowH+2);
-      if (i%2===0) { fill(248,250,252); doc.rect(M,y,CW,rowH,'F'); }
-      setF(7,'bold'); clr(100,116,139); doc.text(String(i+1), M+3, y+5.5);
-      setF(7.5,'bold'); clr(15,23,42); doc.text(rowLines, M+10, y+5.5);
-      if (r.note) { const noteY=y+5.5+rowLines.length*4.5; setF(7,'italic'); clr(100,116,139); doc.text(doc.splitTextToSize(r.note,CW-56), M+10, noteY); }
-      if (r.priority) { const priClr={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[r.priority]||[71,85,105]; setF(7,'bold'); clr(...priClr); doc.text(`P${r.priority}`, M+CW-34, y+5.5); }
-      setF(8,'bold'); clr(5,120,60); doc.text(fmt$(r.cost), W-M-2, y+5.5, {align:'right'});
-      draw(203,213,225); doc.setLineWidth(0.15); doc.line(M,y+rowH,M+CW,y+rowH); y+=rowH;
+      if (i%2===0) { fill(...C.card); doc.rect(M,y,CW,rowH,'F'); }
+      setF(7,'bold'); clr(...C.textDim); doc.text(String(i+1), M+3, y+5.5);
+      setF(7.5,'bold'); clr(...C.text); doc.text(rowLines, M+10, y+5.5);
+      if (r.note) { const noteY=y+5.5+rowLines.length*4.5; setF(7,'italic'); clr(...C.textDim); doc.text(doc.splitTextToSize(r.note,CW-56), M+10, noteY); }
+      if (r.priority) { const priClr={A:C.priA,B:C.priB,C:C.priC}[r.priority]||C.textDim; setF(7,'bold'); clr(...priClr); doc.text(`P${r.priority}`, M+CW-34, y+5.5); }
+      setF(8,'bold'); clr(...C.done); doc.text(fmt$(r.cost), W-M-2, y+5.5, {align:'right'});
+      draw(...C.line); doc.setLineWidth(0.15); doc.line(M,y+rowH,M+CW,y+rowH); y+=rowH;
     });
 
     y+=4;
     const subtotal2=allCostItems.reduce((a,r)=>a+r.cost,0);
     const taxAmt2=taxSettings.enabled?subtotal2*taxSettings.rate/100:0;
     const total2=subtotal2+taxAmt2;
-    chk(9); fill(248,250,252); doc.rect(M,y,CW,8,'F');
-    setF(8,'bold'); clr(71,85,105); doc.text('SUBTOTAL', M+4, y+5.5);
-    setF(8,'bold'); clr(30,41,59); doc.text(fmt$(subtotal2), W-M-2, y+5.5, {align:'right'}); y+=8;
+    chk(9); fill(...C.card); doc.rect(M,y,CW,8,'F');
+    setF(8,'bold'); clr(...C.textDim); doc.text('SUBTOTAL', M+4, y+5.5);
+    setF(8,'bold'); clr(...C.text); doc.text(fmt$(subtotal2), W-M-2, y+5.5, {align:'right'}); y+=8;
     if (taxSettings.enabled) {
-      chk(9); fill(248,250,252); doc.rect(M,y,CW,8,'F');
-      setF(8,'normal'); clr(71,85,105); doc.text(`HST / TAX (${taxSettings.rate}%)`, M+4, y+5.5);
-      setF(8,'normal'); clr(30,41,59); doc.text(fmt$(taxAmt2), W-M-2, y+5.5, {align:'right'}); y+=8;
+      chk(9); fill(...C.card); doc.rect(M,y,CW,8,'F');
+      setF(8,'normal'); clr(...C.textDim); doc.text(`HST / TAX (${taxSettings.rate}%)`, M+4, y+5.5);
+      setF(8,'normal'); clr(...C.text); doc.text(fmt$(taxAmt2), W-M-2, y+5.5, {align:'right'}); y+=8;
     }
-    chk(11); fill(240,253,244); doc.roundedRect(M,y,CW,10,2,2,'F');
-    draw(5,120,60); doc.setLineWidth(0.4); doc.roundedRect(M,y,CW,10,2,2,'S');
-    fill(5,120,60); doc.rect(M,y,2.5,10,'F');
-    setF(9,'bold'); clr(5,120,60); doc.text('TOTAL ESTIMATED REPAIR COST', M+6, y+7);
-    setF(10,'bold'); clr(5,120,60); doc.text(fmt$(total2), W-M-2, y+7, {align:'right'}); y+=14;
-    setF(7,'normal'); clr(100,116,139);
+    chk(11); fill(...C.card); doc.roundedRect(M,y,CW,10,2,2,'F');
+    draw(...C.done); doc.setLineWidth(0.4); doc.roundedRect(M,y,CW,10,2,2,'S');
+    fill(...C.done); doc.rect(M,y,2.5,10,'F');
+    setF(9,'bold'); clr(...C.done); doc.text('TOTAL ESTIMATED REPAIR COST', M+6, y+7);
+    setF(10,'bold'); clr(...C.done); doc.text(fmt$(total2), W-M-2, y+7, {align:'right'}); y+=14;
+    setF(7,'normal'); clr(...C.textDim);
     doc.text(taxSettings.enabled
       ? `Tax calculated at ${taxSettings.rate}% (HST/GST). Toggle in report view to recalculate.`
       : `Tax not included. Toggle the tax option in the report view to add HST/GST.`, M, y);
@@ -2914,6 +2965,16 @@ document.addEventListener('DOMContentLoaded', () => {
       Nav.push('hub'); showView('hub'); renderHub(); renderProgress();
     });
   });
+
+  // Dashboard button in topbar
+  const _dashBtn = document.getElementById('dashboard-btn');
+  if (_dashBtn) {
+    _dashBtn.addEventListener('click', () => {
+      Nav.stack = ['dashboard'];
+      showView('dashboard');
+      renderDashboard();
+    });
+  }
 
   // Tray events
   $('tray-note').addEventListener('keydown', e => {

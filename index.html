@@ -11,6 +11,311 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD STYLES — Horizon UI inspired
+   ═══════════════════════════════════════════════════════════ */
+
+.db-header {
+  background: linear-gradient(135deg, #0d1420 0%, #111827 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  padding: 28px 24px 20px;
+}
+.db-header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.db-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.db-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.db-header-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+}
+.db-header-subtitle {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Stats Row */
+.db-stats-row {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+.db-stat-card {
+  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.db-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.db-stat-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #fbbf24;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.db-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* Container */
+.db-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.db-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.db-section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.db-section-subtitle {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* Projects Grid */
+.db-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 18px;
+}
+
+/* Project Card */
+.db-project-card {
+  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+.db-project-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.db-project-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+  border-color: rgba(251, 191, 36, 0.2);
+}
+.db-project-card:hover::before {
+  opacity: 1;
+}
+
+.db-project-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+.db-project-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.db-project-status.active {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+.db-project-status.completed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.db-project-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.db-project-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+.db-project-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.db-project-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+.db-project-meta-item svg {
+  width: 13px;
+  height: 13px;
+  color: #64748b;
+}
+
+/* Progress Bar */
+.db-project-progress-wrap {
+  margin-bottom: 16px;
+}
+.db-project-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+.db-project-progress-track {
+  height: 6px;
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.db-project-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  transition: width 0.5s ease;
+  min-width: 4px;
+}
+
+/* Card Actions */
+.db-project-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.db-project-actions .tb-btn {
+  flex: 1;
+  min-width: 100px;
+  font-size: 12px;
+  padding: 8px 12px;
+}
+.db-project-actions .tb-btn.danger {
+  flex: 0 0 auto;
+  min-width: 36px;
+  padding: 8px;
+}
+
+/* Empty State */
+.db-empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  background: linear-gradient(145deg, #0d1420 0%, #111827 100%);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.db-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+.db-empty-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-bottom: 6px;
+}
+.db-empty-text {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+/* Hub header adjustment for dashboard button */
+.hub-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .db-projects-grid {
+    grid-template-columns: 1fr;
+  }
+  .db-stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .db-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+</style>
 </head>
 <body>
 
@@ -112,6 +417,14 @@
       Back
     </button>
 
+    <button class="tb-btn" id="btn-dashboard" title="Go to Dashboard" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+      <span class="btn-label">Dashboard</span>
+    </button>
+
     <a class="brand" href="#" onclick="return false">
       <div class="brand-mark">⚓</div>
       <div>
@@ -162,16 +475,65 @@
        DASHBOARD PANEL
   ═══════════════════════════════════════════════════════════ -->
   <div id="dashboard-panel" style="display:none;">
-    <div class="hub-header">
-      <div class="hub-title" id="dashboard-welcome">⚓ Welcome</div>
-      <div class="hub-subtitle">Your saved surveys and projects.</div>
+    <!-- Dashboard Header -->
+    <div class="db-header">
+      <div class="db-header-inner">
+        <div class="db-header-left">
+          <div class="db-header-icon">📂</div>
+          <div>
+            <div class="db-header-title">Projects</div>
+            <div class="db-header-subtitle" id="dashboard-welcome">⚓ Welcome</div>
+          </div>
+        </div>
+        <button class="tb-btn primary" id="btn-start-new-survey">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span class="btn-label">New Survey</span>
+        </button>
+      </div>
     </div>
-    <div style="padding:0 24px 24px;max-width:1200px;margin:0 auto;">
-      <button class="cta-btn go" id="btn-start-new-survey" style="margin-bottom:24px;">
-        Start New Survey
-        <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </button>
-      <div id="dashboard-projects-list"></div>
+
+    <!-- Stats Row -->
+    <div class="db-stats-row">
+      <div class="db-stat-card">
+        <div class="db-stat-value" id="db-stat-total">0</div>
+        <div class="db-stat-label">Total Surveys</div>
+      </div>
+      <div class="db-stat-card">
+        <div class="db-stat-value" id="db-stat-active">0</div>
+        <div class="db-stat-label">In Progress</div>
+      </div>
+      <div class="db-stat-card">
+        <div class="db-stat-value" id="db-stat-completed">0</div>
+        <div class="db-stat-label">Completed</div>
+      </div>
+      <div class="db-stat-card">
+        <div class="db-stat-value" id="db-stat-findings">0</div>
+        <div class="db-stat-label">Total Findings</div>
+      </div>
+    </div>
+
+    <!-- Project Grid Container -->
+    <div class="db-container">
+      <div class="db-section-header">
+        <div class="db-section-title">Your Surveys</div>
+        <div class="db-section-subtitle" id="db-project-count">0 projects</div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="dashboard-empty-state" class="db-empty-state" style="display:none;">
+        <div class="db-empty-icon">📋</div>
+        <div class="db-empty-title">No surveys yet</div>
+        <div class="db-empty-text">Start your first vessel inspection to see it here.</div>
+        <button class="cta-btn go" id="btn-empty-new-survey" style="margin-top:16px;">
+          Start New Survey
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+
+      <!-- Project Cards Grid -->
+      <div id="dashboard-projects-list" class="db-projects-grid"></div>
     </div>
   </div>
 
@@ -299,8 +661,19 @@
   <!-- HUB PANEL -->
   <div id="hub-panel" style="display:none;">
     <div class="hub-header">
-      <div class="hub-title">⚓ Survey Hub — Select a System to Inspect</div>
-      <div class="hub-subtitle">Click any category card to open its checklist. Your progress is tracked live.</div>
+      <div class="hub-header-content">
+        <div>
+          <div class="hub-title">⚓ Survey Hub — Select a System to Inspect</div>
+          <div class="hub-subtitle">Click any category card to open its checklist. Your progress is tracked live.</div>
+        </div>
+        <button class="tb-btn" id="btn-hub-dashboard" title="Go to Dashboard">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+          </svg>
+          <span class="btn-label">Dashboard</span>
+        </button>
+      </div>
     </div>
     <div class="hub-grid" id="hub-grid"></div>
   </div>
