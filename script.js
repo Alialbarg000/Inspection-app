@@ -4,6 +4,64 @@
 ================================================================ */
 'use strict';
 
+// ───────────────────────────────────────────────────────────────
+// §0  SUPABASE — ACCESS GATE
+// ───────────────────────────────────────────────────────────────
+const _SB_URL  = 'https://xbqcagwzrqxgzwqiifpr.supabase.co';
+const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPztNfJjxw_HUzdyWb9R6N7KxT4G';
+const _SB      = supabase.createClient(_SB_URL, _SB_KEY);
+const AG_LS    = 'sansoon_access_token_v1';
+
+async function checkAccessGate() {
+  const saved = localStorage.getItem(AG_LS);
+  if (saved) { hideAccessGate(); return; }
+  document.getElementById('access-gate').style.display = 'flex';
+}
+
+function hideAccessGate() {
+  const gate = document.getElementById('access-gate');
+  if (gate) gate.style.display = 'none';
+}
+
+async function verifyAccessKey() {
+  const input  = document.getElementById('ag-key-input');
+  const errEl  = document.getElementById('ag-error');
+  const btnLbl = document.getElementById('ag-btn-label');
+  const key    = input ? input.value.trim() : '';
+  if (!key) { showAgError('Please enter your access key.'); return; }
+
+  btnLbl.textContent = 'Verifying…';
+  document.getElementById('ag-verify-btn').disabled = true;
+  errEl.style.display = 'none';
+
+  try {
+    const { data, error } = await _SB
+      .from('access_keys')
+      .select('key_code')
+      .eq('key_code', key)
+      .maybeSingle();
+
+    if (error || !data) {
+      showAgError('Invalid access key. Please try again.');
+    } else {
+      localStorage.setItem(AG_LS, key);
+      hideAccessGate();
+    }
+  } catch (e) {
+    showAgError('Network error. Check your connection and retry.');
+  }
+
+  btnLbl.textContent = 'Verify Key';
+  document.getElementById('ag-verify-btn').disabled = false;
+}
+
+function showAgError(msg) {
+  const errEl = document.getElementById('ag-error');
+  if (!errEl) return;
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+}
+
 // ── COMPANY LOGO — paste your real Base64 string here ─────────
 const COMPANY_LOGO_BASE64 = 'PLACEHOLDER_LOGO_BASE64';
 
@@ -795,9 +853,52 @@ function removePhoto() {
 
 function triggerPhotoUpload() { $('photo-file-input').click(); }
 
+// ── IndexedDB helpers for photo storage ───────────────────────
+const IDB_NAME    = 'sansoon_photos_v1';
+const IDB_STORE   = 'photos';
+let   _idb        = null;
+
+function openPhotoDB() {
+  if (_idb) return Promise.resolve(_idb);
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess       = e => { _idb = e.target.result; res(_idb); };
+    req.onerror         = () => rej(req.error);
+  });
+}
+
+function savePhotoIDB(key, dataUrl) {
+  return openPhotoDB().then(db => new Promise((res, rej) => {
+    const tx  = db.transaction(IDB_STORE, 'readwrite');
+    const req = tx.objectStore(IDB_STORE).put(dataUrl, key);
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  }));
+}
+
+function loadPhotoIDB(key) {
+  return openPhotoDB().then(db => new Promise((res, rej) => {
+    const tx  = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(key);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror   = () => rej(req.error);
+  }));
+}
+
+function deletePhotoIDB(key) {
+  return openPhotoDB().then(db => new Promise((res, rej) => {
+    const tx  = db.transaction(IDB_STORE, 'readwrite');
+    const req = tx.objectStore(IDB_STORE).delete(key);
+    req.onsuccess = () => res();
+    req.onerror   = () => rej(req.error);
+  }));
+}
+
 function handlePhotoInput(input) {
   const file = input.files && input.files[0];
   if (!file || !_currentTrayId) return;
+  const itemId = _currentTrayId;
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
@@ -806,9 +907,16 @@ function handlePhotoInput(input) {
       if (w>max||h>max) { const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
       const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
-      const url = cv.toDataURL('image/jpeg',0.78);
-      State.items[_currentTrayId].finding.photo = url;
-      renderTrayPhoto(url); refreshAll();
+      const url = cv.toDataURL('image/jpeg',0.72);
+      // Store compressed photo in IndexedDB keyed by item ID
+      savePhotoIDB(itemId, url).then(() => {
+        State.items[itemId].finding.photo = itemId; // store key reference, not raw data
+        renderTrayPhoto(url); refreshAll();
+      }).catch(() => {
+        // Fallback: store inline if IDB fails
+        State.items[itemId].finding.photo = url;
+        renderTrayPhoto(url); refreshAll();
+      });
     };
     img.src = e.target.result;
   };
@@ -849,7 +957,9 @@ function handleSaveToQuickInsert() {
   else showToast('Already in Quick Insert');
 }
 
-// ── Vessel Cover Photo ─────────────────────────────────────────
+// ── Vessel Cover Photo — stored in IndexedDB ──────────────────
+const VESSEL_PHOTO_IDB_KEY = '__vessel_cover_photo__';
+
 function handleVesselPhoto(input) {
   const file = input.files && input.files[0];
   if (!file) return;
@@ -861,8 +971,14 @@ function handleVesselPhoto(input) {
       if(w>maxW||h>maxH){ const r=Math.min(maxW/w,maxH/h); w=Math.round(w*r); h=Math.round(h*r); }
       const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
-      State.vesselPhoto = cv.toDataURL('image/jpeg',0.82);
-      updateVesselPhotoPreview(); showToast('Vessel photo saved');
+      const url = cv.toDataURL('image/jpeg',0.82);
+      savePhotoIDB(VESSEL_PHOTO_IDB_KEY, url).then(() => {
+        State.vesselPhoto = VESSEL_PHOTO_IDB_KEY; // store key reference
+        updateVesselPhotoPreview(); showToast('Vessel photo saved');
+      }).catch(() => {
+        State.vesselPhoto = url; // fallback inline
+        updateVesselPhotoPreview(); showToast('Vessel photo saved');
+      });
     };
     img.src = e.target.result;
   };
@@ -1987,6 +2103,13 @@ function renderChipSuggestion(status) {
 // §23  BOOTSTRAP
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // ── Access gate setup ────────────────────────────────────────
+  checkAccessGate();
+  const _agBtn   = document.getElementById('ag-verify-btn');
+  const _agInput = document.getElementById('ag-key-input');
+  if (_agBtn)   _agBtn.addEventListener('click', verifyAccessKey);
+  if (_agInput) _agInput.addEventListener('keydown', e => { if (e.key === 'Enter') verifyAccessKey(); });
+
   loadQuickInsert();
   loadCustomSections();
   loadTaxSettings();
