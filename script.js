@@ -2321,7 +2321,7 @@ function renderHub() {
           'display:inline-flex;align-items:center;justify-content:center;' +
           'min-width:44px;height:24px;padding:0 8px;border-radius:12px;' +
           'background:' + badgeBg + ';color:#fff;font-size:12px;font-weight:700;' +
-          'font-family:'IBM Plex Mono',monospace;letter-spacing:0.02em;' +
+          'font-family:&quot;IBM Plex Mono&quot;,monospace;letter-spacing:0.02em;' +
           'flex-shrink:0;margin-top:2px;box-shadow:0 1px 4px rgba(0,0,0,.35);' +
         '">' + pct + '%</span>' +
       '</div>' +
