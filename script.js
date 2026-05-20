@@ -3141,15 +3141,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Dashboard button in topbar
-  const _dashBtn = document.getElementById('dashboard-btn');
-  if (_dashBtn) {
-    _dashBtn.addEventListener('click', () => {
-      Nav.stack = ['dashboard'];
-      showView('dashboard');
-      renderDashboard();
-    });
-  }
+  // Dashboard buttons in topbar and hub
+  const _dashBtn = document.getElementById('btn-dashboard');
+  const _hubDashBtn = document.getElementById('btn-hub-dashboard');
+  
+  const navigateToDashboard = () => {
+    Nav.stack = ['dashboard'];
+    showView('dashboard');
+    renderDashboard();
+  };
+
+  if (_dashBtn) _dashBtn.addEventListener('click', navigateToDashboard);
+  if (_hubDashBtn) _hubDashBtn.addEventListener('click', navigateToDashboard);
 
   // Tray events
   $('tray-note').addEventListener('keydown', e => {
