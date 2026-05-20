@@ -103,10 +103,10 @@
   <!-- ═══════════════════════════════════════════════════════════
        CATEGORY CAPSULE BAR  +  FILTER PILLS
   ═══════════════════════════════════════════════════════════ -->
-  <div class="catbar-wrapper">
+  <div class="catbar-wrapper" style="overflow-x:hidden;max-width:100vw;box-sizing:border-box;">
     <button class="catbar-scroll-btn catbar-scroll-left" id="catbar-scroll-left" aria-label="Scroll left">&#8249;</button>
-    <div class="catbar">
-      <div class="catbar-inner">
+    <div class="catbar" style="overflow-x:auto;overflow-y:hidden;">
+      <div class="catbar-inner" style="width:max-content;min-width:100%;box-sizing:border-box;">
         <div class="filter-row">
           <button class="filter-pill active" data-filter="all">All</button>
           <button class="filter-pill" data-filter="remaining">Remaining</button>
