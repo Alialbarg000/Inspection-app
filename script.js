@@ -731,7 +731,7 @@ function renderCategoryBar() {
     btn.innerHTML = `<span class="cap-icon">${cat.icon}</span>
       <span class="cap-label">${cat.label}</span>
       <span class="cap-pct">${pct}%</span>
-      ${st.findings ? `<span class="cap-flag">⚑${st.findings}</span>` : ''}`;
+      ${st.findings ? `<span class="cap-flag">⚑ ${st.findings}</span>` : ''}`;
     btn.addEventListener('click', () => selectCategory(cat.id));
     bar.appendChild(btn);
   });
@@ -840,6 +840,8 @@ function filterItems(items) {
 // ───────────────────────────────────────────────────────────────
 const STATUS_LABELS = { null:'Not Started', progress:'In Progress', done:'Completed', na:'N / A' };
 const STATUS_CLASS  = { null:'status-none', progress:'status-progress', done:'status-done', na:'status-na' };
+// NOTE: The class names are identical — the Horizon UI color changes are purely
+// in style.css. No change needed here. (This entry is for reference only.)
 
 function pillIcon(s) {
   if (s === 'done')     return `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
@@ -862,7 +864,7 @@ function buildItemRow(item, num) {
       onclick="enableInlineEdit('${item.id}',document.getElementById('il-${item.id}'))">✏️</button>
     <div class="item-controls">
       ${hasPhoto ? `<span class="photo-indicator" title="Photo attached">📷</span>` : ''}
-      <button class="pill-btn ${STATUS_CLASS[s.status]}" data-id="${item.id}">
+      <button class="pill-btn ${STATUS_CLASS[s.status]}" data-id="${item.id}" title="${STATUS_LABELS[s.status]}">
         ${pillIcon(s.status)}<span>${STATUS_LABELS[s.status]}</span>
       </button>
       <button class="flag-btn ${s.finding.active ? 'active' : ''}" data-id="${item.id}" title="Flag finding">
