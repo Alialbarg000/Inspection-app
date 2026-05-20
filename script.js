@@ -1377,6 +1377,15 @@ function buildReport() {
     ? `<img src="data:image/jpeg;base64,${COMPANY_LOGO_BASE64}" class="rpt-logo-img" alt="${COMPANY_NAME}">`
     : `<div class="rpt-logo-fallback">${COMPANY_NAME}</div>`;
 
+// Resolve vessel cover photo for screen/print render
+  let _screenVesselSrc = '';
+  if (State.vesselPhoto) {
+    if (State.vesselPhoto.startsWith('data:')) {
+      _screenVesselSrc = State.vesselPhoto;
+    } else {
+      try { _screenVesselSrc = await loadPhotoIDB(State.vesselPhoto); } catch(e) {}
+    }
+  }
   $('report-body').innerHTML = `
     <div class="rpt-cover">
       <div class="rpt-cvr-top">
@@ -1385,7 +1394,7 @@ function buildReport() {
         <div class="rpt-vessel-name">${I.vessel}</div>
         <div class="rpt-cvr-meta">${fmtDate} &nbsp;·&nbsp; ${I.type}</div>
       </div>
-      ${State.vesselPhoto ? `<div class="rpt-vessel-photo"><img src="${State.vesselPhoto}" alt="Vessel" class="rpt-vessel-photo-img"></div>` : ''}
+      ${_screenVesselSrc ? `<div class="rpt-vessel-photo"><img src="${_screenVesselSrc}" alt="Vessel" class="rpt-vessel-photo-img"></div>` : ''}
       <div class="rpt-info-grid">
         ${[['Vessel',I.vessel],['HIN',I.hin],['Surveyor',I.surveyor],['Client',I.client],
            ['Date',fmtDate],['Type',I.type],['Location',I.location],['Weather',I.weather],['Ref #',I.ref]]
@@ -1515,9 +1524,17 @@ async function downloadPDF() {
   if (vesselPhotoData) {
     try {
       // Card shadow effect: light gray border rect behind image
-      fill(226,232,240); doc.roundedRect(M-1, photoBottom-1, CW+2, 62, 2, 2, 'F');
-      doc.addImage(vesselPhotoData,'JPEG',M,photoBottom,CW,60,undefined,'FAST');
-      photoBottom += 65;
+      // Enforce contain-fit: compute scaled dims to fill CW×80 without stretching
+      const _tmpImg = new Image();
+      await new Promise(res => { _tmpImg.onload = res; _tmpImg.onerror = res; _tmpImg.src = vesselPhotoData; });
+      const _ih = _tmpImg.naturalHeight || 1, _iw = _tmpImg.naturalWidth || 1;
+      const _maxW = CW, _maxH = 80;
+      const _scale = Math.min(_maxW / _iw, _maxH / _ih);
+      const _dw = _iw * _scale, _dh = _ih * _scale;
+      const _dx = M + (_maxW - _dw) / 2; // center horizontally
+      fill(226,232,240); doc.roundedRect(M-1, photoBottom-1, CW+2, _maxH+2, 2, 2, 'F');
+      doc.addImage(vesselPhotoData,'JPEG',_dx,photoBottom,_dw,_dh,undefined,'FAST');
+      photoBottom += _maxH + 5;
     } catch(e) {}
   }
 
