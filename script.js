@@ -6,10 +6,14 @@
 
 // ───────────────────────────────────────────────────────────────
 // §22b  AUTOSAVE ENGINE  —  sansoon_survey_draft
+//        ► Draft uses sessionStorage (clears on tab/browser close)
+//        ► Access tokens stay in localStorage (persist across sessions)
 // ───────────────────────────────────────────────────────────────
-const DRAFT_LS_KEY = 'sansoon_survey_draft';
+const DRAFT_KEY = 'sansoon_survey_draft';
 
 function saveAllProgress() {
+  // Passively snapshot state into sessionStorage.
+  // Does NOT touch, rebuild, or re-render any DOM elements.
   try {
     const draft = {
       vesselFields: {
@@ -27,7 +31,7 @@ function saveAllProgress() {
       items: {},
     };
 
-    // Serialize every item: status + full finding object (excluding raw photo data)
+    // Serialize every item: status + finding object (no raw photo data)
     Object.keys(State.items).forEach(id => {
       const s = State.items[id];
       draft.items[id] = {
@@ -37,26 +41,28 @@ function saveAllProgress() {
           note:     s.finding.note,
           priority: s.finding.priority,
           cost:     s.finding.cost,
-          // photo is stored in IndexedDB keyed by item id — store only the key reference
-          photo:    (s.finding.photo && s.finding.photo.length < 64) ? s.finding.photo : null,
+          // photo blob lives in IndexedDB — store only the key reference
+          photo: (s.finding.photo && s.finding.photo.length < 64) ? s.finding.photo : null,
         },
       };
     });
 
-    localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(draft));
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch (e) {
-    // localStorage may be full (photos are in IDB); fail silently
+    // sessionStorage may be full; fail silently
     console.warn('saveAllProgress failed:', e);
   }
 }
 
 function loadAllProgress() {
+  // Gently restore saved text values and status-button states on page reload.
+  // Does NOT clear, rebuild, or re-render any HTML. Leaves click logic untouched.
   try {
-    const raw = localStorage.getItem(DRAFT_LS_KEY);
+    const raw = sessionStorage.getItem(DRAFT_KEY);
     if (!raw) return false;
     const draft = JSON.parse(raw);
 
-    // Restore vessel intake fields
+    // Restore vessel intake field values
     if (draft.vesselFields) {
       Object.keys(draft.vesselFields).forEach(id => {
         const el = document.getElementById(id);
@@ -64,10 +70,11 @@ function loadAllProgress() {
       });
     }
 
-    // Restore item state: status + finding data
+    // Restore item state into the State object only.
+    // The next renderAccordion() call (via refreshAll) picks this up automatically.
     if (draft.items) {
       Object.keys(draft.items).forEach(id => {
-        if (!State.items[id]) return;          // item may have been removed
+        if (!State.items[id]) return; // item may have been removed
         const saved = draft.items[id];
         State.items[id].status = saved.status || null;
 
@@ -88,12 +95,14 @@ function loadAllProgress() {
     return false;
   }
 }
+
+// ───────────────────────────────────────────────────────────────
+// ACCESS GATE  (tokens stay in localStorage — persist on refresh)
 // ───────────────────────────────────────────────────────────────
 const _SB_URL  = 'https://xbqcagwzrqxgzwqiifpr.supabase.co';
 const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPZtNfJjxw_HUzdYG5b';
 const _SB      = supabase.createClient(_SB_URL, _SB_KEY);
-const AG_LS    = 'sansoon_access_token_v1';
-
+const AG_LS         = 'sansoon_access_token_v1';
 const AG_EXPIRES_LS = 'sansoon_key_expires_at';
 
 async function checkAccessGate() {
@@ -102,7 +111,8 @@ async function checkAccessGate() {
 
   if (saved) {
     if (expires && Date.now() > parseInt(expires, 10)) {
-      localStorage.clear();
+      localStorage.removeItem(AG_LS);
+      localStorage.removeItem(AG_EXPIRES_LS);
       document.getElementById('access-gate').style.display = 'flex';
       showAgError('This access key has expired.');
       return;
@@ -112,7 +122,8 @@ async function checkAccessGate() {
       const remaining = parseInt(expires, 10) - Date.now();
       if (remaining > 0) {
         setTimeout(() => {
-          localStorage.clear();
+          localStorage.removeItem(AG_LS);
+          localStorage.removeItem(AG_EXPIRES_LS);
           document.getElementById('access-gate').style.display = 'flex';
           showAgError('This access key has expired.');
         }, remaining);
@@ -165,7 +176,8 @@ async function verifyAccessKey() {
       if (expiresAt !== null) {
         const remaining = expiresAt - Date.now();
         setTimeout(() => {
-          localStorage.clear();
+          localStorage.removeItem(AG_LS);
+          localStorage.removeItem(AG_EXPIRES_LS);
           document.getElementById('access-gate').style.display = 'flex';
           showAgError('This access key has expired.');
         }, remaining);
@@ -610,7 +622,6 @@ function _historyPush() {
 window.addEventListener('popstate', () => {
   history.pushState({ appNav: true, depth: Nav.stack.length }, '');
   if (Nav.current() === 'category') {
-    // Inside a section view — cleanly route back to hub
     Nav.lastVisitedSection = Nav.activeCategory;
     Nav.noteTrayOpen = false;
     Nav.openAccordion = null;
@@ -618,8 +629,6 @@ window.addEventListener('popstate', () => {
     showView(Nav.stack[Nav.stack.length - 1]);
     refreshAll();
   } else {
-    // Already on hub or splash — delegate to Nav.back()
-    // which will trigger the confirmation modal if on hub
     Nav.back();
   }
 });
@@ -751,7 +760,6 @@ function renderAccordion() {
   const acc = $('accordion');
   acc.innerHTML = '';
 
-  // Build the ordered list of sub IDs for this category (for jump targets)
   const subIds = cat.subcategories.map(s => s.id);
 
   cat.subcategories.forEach((sub, idx) => {
@@ -764,7 +772,6 @@ function renderAccordion() {
     section.dataset.subId = sub.id;
     section.id = 'acc-sec-' + sub.id;
 
-    // Determine prev/next jump targets within this category
     const prevId = idx > 0 ? subIds[idx - 1] : null;
     const nextId = idx < subIds.length - 1 ? subIds[idx + 1] : null;
 
@@ -792,14 +799,12 @@ function renderAccordion() {
         ${jumpArrowsHTML}
       </div>`;
 
-    // Accordion toggle — ignores clicks on jump arrow buttons
     hdr.addEventListener('click', e => {
       if (e.target.closest('.acc-jump-btn')) return;
       Nav.openAccordion = Nav.openAccordion === sub.id ? null : sub.id;
       renderAccordion(); renderContextBar(); updateBackBtn();
     });
 
-    // Wire up jump arrow click handlers after DOM is built
     hdr.querySelectorAll('.acc-jump-btn').forEach(btn => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -906,17 +911,17 @@ function openNoteTray(itemId) {
   const item = allItems().find(it => it.id === itemId);
   if (!item) return;
   const s = State.items[itemId];
+  const f = s.finding; // ← fixed: was referenced before being declared
   _currentTrayId = itemId;
   Nav.noteTrayOpen = true;
 
   $('tray-item-label').textContent = item.label;
-  $('tray-note').value = s.finding.note;
+  $('tray-note').value = f.note;
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.pri === f.priority));
-  saveAllProgress();
-  renderTrayPhoto(s.finding.photo);
+  renderTrayPhoto(f.photo);
   renderQuickInsertList();
-  renderChipSuggestion(State.items[itemId].status || 'progress');
+  renderChipSuggestion(s.status || 'progress');
   renderCostField(itemId);
 
   $('note-tray').classList.add('open');
@@ -1037,12 +1042,10 @@ function handlePhotoInput(input) {
       const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
       const url = cv.toDataURL('image/jpeg',0.72);
-      // Store compressed photo in IndexedDB keyed by item ID
       savePhotoIDB(itemId, url).then(() => {
-        State.items[itemId].finding.photo = itemId; // store key reference, not raw data
+        State.items[itemId].finding.photo = itemId;
         renderTrayPhoto(url); refreshAll();
       }).catch(() => {
-        // Fallback: store inline if IDB fails
         State.items[itemId].finding.photo = url;
         renderTrayPhoto(url); refreshAll();
       });
@@ -1102,10 +1105,10 @@ function handleVesselPhoto(input) {
       cv.getContext('2d').drawImage(img,0,0,w,h);
       const url = cv.toDataURL('image/jpeg',0.82);
       savePhotoIDB(VESSEL_PHOTO_IDB_KEY, url).then(() => {
-        State.vesselPhoto = VESSEL_PHOTO_IDB_KEY; // store key reference
+        State.vesselPhoto = VESSEL_PHOTO_IDB_KEY;
         updateVesselPhotoPreview(); showToast('Vessel photo saved');
       }).catch(() => {
-        State.vesselPhoto = url; // fallback inline
+        State.vesselPhoto = url;
         updateVesselPhotoPreview(); showToast('Vessel photo saved');
       });
     };
@@ -1197,18 +1200,15 @@ document.addEventListener('keydown', e => {
     if (document.getElementById('nav-confirm-overlay')) return;
     e.preventDefault();
     if (Nav.noteTrayOpen) {
-      // Always let the tray handle its own Escape first
       closeNoteTray(); return;
     }
     if (Nav.current() === 'category') {
-      // Inside a section view — cleanly route back to hub
       Nav.lastVisitedSection = Nav.activeCategory;
       Nav.openAccordion = null;
       Nav.stack.pop();
       showView(Nav.stack[Nav.stack.length - 1]);
       refreshAll();
     } else {
-      // On hub or any other view — delegate (triggers confirm modal on hub)
       Nav.back();
     }
   }
@@ -1649,6 +1649,8 @@ function resetAll() {
   document.querySelectorAll('.filter-pill').forEach(b => b.classList.toggle('active', b.dataset.filter==='all'));
   $('note-tray').classList.remove('open'); $('tray-overlay').classList.remove('visible');
   updateVesselPhotoPreview();
+  // Clear draft from sessionStorage on manual reset
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch(e) {}
   showView('splash'); renderCategoryBar(); renderProgress();
   showToast('Inspection reset');
 }
@@ -2026,23 +2028,6 @@ function buildCostPage() {
 function toggleReportTax(enabled) { taxSettings.enabled=enabled; saveTaxSettings(); buildReport(); }
 function updateTaxRate(val)        { taxSettings.rate=parseFloat(val)||13; saveTaxSettings(); }
 
-
-
-function attachAutosaveListeners() {
-  // Watch splash form fields
-  const FIELD_IDS = [
-    'v-name','v-hin','v-ref','v-surveyor','v-client',
-    'v-date','v-type','v-location','v-weather','v-scope'
-  ];
-  FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const evt = (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'checkbox')
-      ? 'change' : 'input';
-    el.addEventListener(evt, saveAllProgress);
-  });
-}
-
 // ───────────────────────────────────────────────────────────────
 // §21  CUSTOM SECTIONS & ITEMS
 // ───────────────────────────────────────────────────────────────
@@ -2119,15 +2104,12 @@ function enableInlineEdit(itemId, labelEl) {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // ── INLINE SMART DELETE: empty input + Enter removes the item ──
       if (input.value.trim() === '') {
-        input.blur(); // prevent commit fallback
-        // Remove from every subcategory items array in DB
+        input.blur();
         DB.forEach(cat => cat.subcategories.forEach(sub => {
           const idx = sub.items.findIndex(it => it.id === itemId);
           if (idx !== -1) sub.items.splice(idx, 1);
         }));
-        // Remove from customSections if present
         customSections.forEach(cs => {
           const idx = cs.items.findIndex(it => it.id === itemId);
           if (idx !== -1) cs.items.splice(idx, 1);
@@ -2249,7 +2231,29 @@ function renderChipSuggestion(status) {
 }
 
 // ───────────────────────────────────────────────────────────────
-// §23  BOOTSTRAP
+// §23  AUTOSAVE — targeted field listeners only
+//       No broad container listeners. No DOM rebuilds on save.
+// ───────────────────────────────────────────────────────────────
+function attachAutosaveListeners() {
+  // Only the named splash/intake form fields get autosave listeners.
+  // Checklist item status/flag changes call saveAllProgress() directly
+  // at the point of mutation (cycleStatus, toggleFinding, saveTray, etc.).
+  const FIELD_IDS = [
+    'v-name','v-hin','v-ref','v-surveyor','v-client',
+    'v-date','v-type','v-location','v-weather','v-scope'
+  ];
+  FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Use the right event for each element type
+    const evt = (el.tagName === 'SELECT' || el.type === 'date' || el.type === 'checkbox')
+      ? 'change' : 'input';
+    el.addEventListener(evt, saveAllProgress);
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
+// §24  BOOTSTRAP
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   // ── Access gate setup ────────────────────────────────────────
@@ -2273,15 +2277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Draft restored ✓');
   }
 
-  // ── Autosave: catch ALL text input changes on the intake form fields ──
-  ['v-name','v-hin','v-ref','v-surveyor','v-client','v-date','v-type','v-location','v-weather','v-scope']
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('input', saveAllProgress);
-      if (el) el.addEventListener('change', saveAllProgress);
-    });
-
-  
+  // ── Autosave: targeted input listeners on intake form only ──
+  // (No broad container listeners — these were causing the infinite loop)
+  attachAutosaveListeners();
 
   document.querySelectorAll('.filter-pill').forEach(b =>
     b.addEventListener('click', () => setFilter(b.dataset.filter)));
@@ -2356,8 +2354,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Prevent search results from blocking back btn
   const _sr = $('global-search-results');
   if (_sr) _sr.addEventListener('pointerdown', e => e.stopPropagation());
-
-  attachAutosaveListeners();
 
   showView('splash');
   renderCategoryBar();
