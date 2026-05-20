@@ -883,7 +883,6 @@ function cycleStatus(itemId) {
   else if (Nav.noteTrayOpen && _currentTrayId === itemId) closeNoteTray();
   refreshAll();
   saveAllProgress();
-  saveAllProgress();
 }
 
 function toggleFinding(itemId) {
@@ -942,7 +941,6 @@ function closeNoteTray() {
 function saveTray() {
   if (!_currentTrayId) return;
   State.items[_currentTrayId].finding.note = $('tray-note').value;
-  saveAllProgress();
   saveAllProgress();
 }
 
@@ -2283,16 +2281,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el) el.addEventListener('change', saveAllProgress);
     });
 
-  // ── Autosave: delegate to the entire accordion container for pill-btn and
-  //    flag-btn clicks not caught by cycleStatus/toggleFinding above ─────────
-  const _acc = document.getElementById('accordion');
-  if (_acc) {
-    _acc.addEventListener('click', () => {
-      // Debounce: status already saved inside cycleStatus/toggleFinding,
-      // this catches any edge-case dynamic elements added after boot
-      requestAnimationFrame(saveAllProgress);
-    });
-  }
+  
 
   document.querySelectorAll('.filter-pill').forEach(b =>
     b.addEventListener('click', () => setFilter(b.dataset.filter)));
@@ -2330,6 +2319,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tray events
   $('tray-note').addEventListener('keydown', e => {
     if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); closeNoteTray(); refreshAll(); }
+  });
+  $('tray-note').addEventListener('input', () => {
+    if (!_currentTrayId) return;
+    State.items[_currentTrayId].finding.note = $('tray-note').value;
+    saveAllProgress();
   });
   $('tray-save-btn').addEventListener('click',  () => { closeNoteTray(); refreshAll(); });
   $('tray-close-btn').addEventListener('click', () => { closeNoteTray(); refreshAll(); });
