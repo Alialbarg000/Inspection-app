@@ -5,7 +5,89 @@
 'use strict';
 
 // ───────────────────────────────────────────────────────────────
-// §0  SUPABASE — ACCESS GATE
+// §22b  AUTOSAVE ENGINE  —  sansoon_survey_draft
+// ───────────────────────────────────────────────────────────────
+const DRAFT_LS_KEY = 'sansoon_survey_draft';
+
+function saveAllProgress() {
+  try {
+    const draft = {
+      vesselFields: {
+        'v-name':     document.getElementById('v-name')     ? document.getElementById('v-name').value     : '',
+        'v-hin':      document.getElementById('v-hin')      ? document.getElementById('v-hin').value      : '',
+        'v-ref':      document.getElementById('v-ref')      ? document.getElementById('v-ref').value      : '',
+        'v-surveyor': document.getElementById('v-surveyor') ? document.getElementById('v-surveyor').value : '',
+        'v-client':   document.getElementById('v-client')   ? document.getElementById('v-client').value   : '',
+        'v-date':     document.getElementById('v-date')     ? document.getElementById('v-date').value     : '',
+        'v-type':     document.getElementById('v-type')     ? document.getElementById('v-type').value     : '',
+        'v-location': document.getElementById('v-location') ? document.getElementById('v-location').value : '',
+        'v-weather':  document.getElementById('v-weather')  ? document.getElementById('v-weather').value  : '',
+        'v-scope':    document.getElementById('v-scope')    ? document.getElementById('v-scope').value    : '',
+      },
+      items: {},
+    };
+
+    // Serialize every item: status + full finding object (excluding raw photo data)
+    Object.keys(State.items).forEach(id => {
+      const s = State.items[id];
+      draft.items[id] = {
+        status: s.status,
+        finding: {
+          active:   s.finding.active,
+          note:     s.finding.note,
+          priority: s.finding.priority,
+          cost:     s.finding.cost,
+          // photo is stored in IndexedDB keyed by item id — store only the key reference
+          photo:    (s.finding.photo && s.finding.photo.length < 64) ? s.finding.photo : null,
+        },
+      };
+    });
+
+    localStorage.setItem(DRAFT_LS_KEY, JSON.stringify(draft));
+  } catch (e) {
+    // localStorage may be full (photos are in IDB); fail silently
+    console.warn('saveAllProgress failed:', e);
+  }
+}
+
+function loadAllProgress() {
+  try {
+    const raw = localStorage.getItem(DRAFT_LS_KEY);
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+
+    // Restore vessel intake fields
+    if (draft.vesselFields) {
+      Object.keys(draft.vesselFields).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = draft.vesselFields[id];
+      });
+    }
+
+    // Restore item state: status + finding data
+    if (draft.items) {
+      Object.keys(draft.items).forEach(id => {
+        if (!State.items[id]) return;          // item may have been removed
+        const saved = draft.items[id];
+        State.items[id].status = saved.status || null;
+
+        if (saved.finding) {
+          State.items[id].finding.active   = !!saved.finding.active;
+          State.items[id].finding.note     = saved.finding.note     || '';
+          State.items[id].finding.priority = saved.finding.priority || null;
+          State.items[id].finding.cost     = saved.finding.cost     || '';
+          // Restore IDB photo key reference (actual blob lives in IndexedDB)
+          State.items[id].finding.photo    = saved.finding.photo    || null;
+        }
+      });
+    }
+
+    return true;
+  } catch (e) {
+    console.warn('loadAllProgress failed:', e);
+    return false;
+  }
+}
 // ───────────────────────────────────────────────────────────────
 const _SB_URL  = 'https://xbqcagwzrqxgzwqiifpr.supabase.co';
 const _SB_KEY  = 'sb_publishable_4RpcRJucZnMsSPZtNfJjxw_HUzdYG5b';
@@ -801,6 +883,7 @@ function cycleStatus(itemId) {
   else if (Nav.noteTrayOpen && _currentTrayId === itemId) closeNoteTray();
   refreshAll();
   saveAllProgress();
+  saveAllProgress();
 }
 
 function toggleFinding(itemId) {
@@ -830,7 +913,8 @@ function openNoteTray(itemId) {
   $('tray-item-label').textContent = item.label;
   $('tray-note').value = s.finding.note;
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
-    b.classList.toggle('active', b.dataset.pri === s.finding.priority));
+    b.classList.toggle('active', b.dataset.pri === f.priority));
+  saveAllProgress();
   renderTrayPhoto(s.finding.photo);
   renderQuickInsertList();
   renderChipSuggestion(State.items[itemId].status || 'progress');
@@ -858,6 +942,7 @@ function closeNoteTray() {
 function saveTray() {
   if (!_currentTrayId) return;
   State.items[_currentTrayId].finding.note = $('tray-note').value;
+  saveAllProgress();
   saveAllProgress();
 }
 
@@ -1869,8 +1954,10 @@ function saveTaxSettings() {
   try { localStorage.setItem(TAX_LS_KEY, JSON.stringify(taxSettings)); } catch(e) {}
 }
 function setItemCost(itemId, val) {
-  if (State.items[itemId]) State.items[itemId].finding.cost = val;
-  saveAllProgress();
+  if (State.items[itemId]) {
+    State.items[itemId].finding.cost = val;
+    saveAllProgress();
+  }
 }
 
 function renderCostField(itemId) {
@@ -2251,6 +2338,31 @@ document.addEventListener('DOMContentLoaded', () => {
   buildSearchIndex();
   initState();
   $('v-date').valueAsDate = new Date();
+
+  // ── Restore saved draft (overwrites initState defaults if a draft exists) ──
+  const _hadDraft = loadAllProgress();
+  if (_hadDraft) {
+    showToast('Draft restored ✓');
+  }
+
+  // ── Autosave: catch ALL text input changes on the intake form fields ──
+  ['v-name','v-hin','v-ref','v-surveyor','v-client','v-date','v-type','v-location','v-weather','v-scope']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', saveAllProgress);
+      if (el) el.addEventListener('change', saveAllProgress);
+    });
+
+  // ── Autosave: delegate to the entire accordion container for pill-btn and
+  //    flag-btn clicks not caught by cycleStatus/toggleFinding above ─────────
+  const _acc = document.getElementById('accordion');
+  if (_acc) {
+    _acc.addEventListener('click', () => {
+      // Debounce: status already saved inside cycleStatus/toggleFinding,
+      // this catches any edge-case dynamic elements added after boot
+      requestAnimationFrame(saveAllProgress);
+    });
+  }
 
   document.querySelectorAll('.filter-pill').forEach(b =>
     b.addEventListener('click', () => setFilter(b.dataset.filter)));
