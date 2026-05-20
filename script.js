@@ -1380,9 +1380,9 @@ function buildReport() {
 // Resolve vessel cover photo for screen/print render
   let _screenVesselSrc = '';
   if (State.vesselPhoto) {
-    if (State.vesselPhoto.startsWith('data:')) {
+    if (typeof State.vesselPhoto === 'string' && State.vesselPhoto.startsWith('data:')) {
       _screenVesselSrc = State.vesselPhoto;
-    } else {
+    } else if (typeof loadPhotoIDB === 'function') {
       try { _screenVesselSrc = await loadPhotoIDB(State.vesselPhoto); } catch(e) {}
     }
   }
@@ -1394,7 +1394,7 @@ function buildReport() {
         <div class="rpt-vessel-name">${I.vessel}</div>
         <div class="rpt-cvr-meta">${fmtDate} &nbsp;·&nbsp; ${I.type}</div>
       </div>
-      ${_screenVesselSrc ? `<div class="rpt-vessel-photo"><img src="${_screenVesselSrc}" alt="Vessel" class="rpt-vessel-photo-img"></div>` : ''}
+      ${_screenVesselSrc ? `<div class="rpt-vessel-photo"><img src="${_screenVesselSrc}" alt="Vessel" class="rpt-vessel-photo-img" onerror="this.parentElement.style.display='none'"></div>` : ''}
       <div class="rpt-info-grid">
         ${[['Vessel',I.vessel],['HIN',I.hin],['Surveyor',I.surveyor],['Client',I.client],
            ['Date',fmtDate],['Type',I.type],['Location',I.location],['Weather',I.weather],['Ref #',I.ref]]
