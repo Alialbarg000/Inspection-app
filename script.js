@@ -911,7 +911,7 @@ function openNoteTray(itemId) {
   const item = allItems().find(it => it.id === itemId);
   if (!item) return;
   const s = State.items[itemId];
-  const f = s.finding; // ← fixed: was referenced before being declared
+  const f = s.finding;
   _currentTrayId = itemId;
   Nav.noteTrayOpen = true;
 
@@ -919,7 +919,17 @@ function openNoteTray(itemId) {
   $('tray-note').value = f.note;
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.pri === f.priority));
-  renderTrayPhoto(f.photo);
+
+  // Load photo from IndexedDB if the stored value looks like an IDB key
+  // (short string with no data: prefix), otherwise render inline data URL directly.
+  if (f.photo && !f.photo.startsWith('data:')) {
+    loadPhotoIDB(f.photo)
+      .then(dataUrl => renderTrayPhoto(dataUrl || null))
+      .catch(() => renderTrayPhoto(null));
+  } else {
+    renderTrayPhoto(f.photo || null);
+  }
+
   renderQuickInsertList();
   renderChipSuggestion(s.status || 'progress');
   renderCostField(itemId);
@@ -990,15 +1000,22 @@ function triggerPhotoUpload() { $('photo-file-input').click(); }
 // ── IndexedDB helpers for photo storage ───────────────────────
 const IDB_NAME    = 'sansoon_photos_v1';
 const IDB_STORE   = 'photos';
+const IDB_VERSION = 2;          // bump triggers onupgradeneeded on existing installs
 let   _idb        = null;
 
 function openPhotoDB() {
   if (_idb) return Promise.resolve(_idb);
   return new Promise((res, rej) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess       = e => { _idb = e.target.result; res(_idb); };
-    req.onerror         = () => rej(req.error);
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      // Primary photo store — key is item id string, value is compressed data URL
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess = e => { _idb = e.target.result; res(_idb); };
+    req.onerror   = () => rej(req.error);
   });
 }
 
@@ -1029,30 +1046,60 @@ function deletePhotoIDB(key) {
   }));
 }
 
+// MAX_PHOTO_PX — compress down to this dimension on the longest edge.
+// 900px at 0.72 JPEG quality produces ~60-120 KB per photo; ample for survey reports.
+const MAX_PHOTO_PX = 900;
+
+function compressImage(file) {
+  // Returns a Promise that resolves to a compressed JPEG data URL.
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onerror = () => rej(new Error('FileReader failed'));
+    reader.onload = e => {
+      const img = new Image();
+      img.onerror = () => rej(new Error('Image decode failed'));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > MAX_PHOTO_PX || h > MAX_PHOTO_PX) {
+          const r = Math.min(MAX_PHOTO_PX / w, MAX_PHOTO_PX / h);
+          w = Math.round(w * r);
+          h = Math.round(h * r);
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        res(cv.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function handlePhotoInput(input) {
   const file = input.files && input.files[0];
   if (!file || !_currentTrayId) return;
   const itemId = _currentTrayId;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      let w=img.width, h=img.height; const max=1200;
-      if (w>max||h>max) { const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r); }
-      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      const url = cv.toDataURL('image/jpeg',0.72);
-      savePhotoIDB(itemId, url).then(() => {
-        State.items[itemId].finding.photo = itemId;
-        renderTrayPhoto(url); refreshAll();
-      }).catch(() => {
-        State.items[itemId].finding.photo = url;
-        renderTrayPhoto(url); refreshAll();
-      });
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file); input.value='';
+  input.value = '';   // reset immediately so the same file can be re-selected
+
+  compressImage(file).then(dataUrl => {
+    return savePhotoIDB(itemId, dataUrl).then(() => {
+      // Store only the IDB key in State — never the raw data URL
+      State.items[itemId].finding.photo = itemId;
+      renderTrayPhoto(dataUrl);
+      refreshAll();
+      saveAllProgress();
+    }).catch(() => {
+      // IDB unavailable — fall back to storing the data URL directly in State
+      State.items[itemId].finding.photo = dataUrl;
+      renderTrayPhoto(dataUrl);
+      refreshAll();
+      saveAllProgress();
+    });
+  }).catch(err => {
+    console.warn('handlePhotoInput: compression failed', err);
+    showToast('Photo could not be processed');
+  });
 }
 
 // ── Quick Insert ───────────────────────────────────────────────
