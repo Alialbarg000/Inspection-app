@@ -2326,6 +2326,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('tray-save-btn').addEventListener('click',  () => { closeNoteTray(); refreshAll(); });
   $('tray-close-btn').addEventListener('click', () => { closeNoteTray(); refreshAll(); });
   $('tray-overlay').addEventListener('click',   () => { closeNoteTray(); refreshAll(); });
+
+  // On desktop the tray IS the backdrop; close only when clicking the backdrop itself,
+  // not when the click originates from inside the card content.
+  $('note-tray').addEventListener('click', e => {
+    if (e.target === $('note-tray')) { closeNoteTray(); refreshAll(); }
+  });
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
     b.addEventListener('click', () => setTrayPriority(b.dataset.pri)));
   $('photo-add-btn').addEventListener('click', triggerPhotoUpload);
