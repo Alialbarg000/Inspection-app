@@ -1501,3 +1501,37 @@ select.f-input { cursor: pointer; }
   .rpt-cvr-top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rpt-photo-img, .rpt-vessel-photo-img, .rpt-inline-thumb { break-inside: avoid; }
 }
+/* ── PDF: vessel cover photo ───────────────────────────────── */
+.vp-img {
+  width: 100%;
+  height: 380px;
+  object-fit: contain !important;
+}
+
+/* ── PDF: TOC dot-leader row ───────────────────────────────── */
+@media print {
+  .rpt-toc-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .rpt-toc-label {
+    flex-shrink: 0;
+    color: #1e293b;
+    font-weight: 500;
+  }
+  .rpt-toc-dots {
+    flex: 1;
+    border-bottom: 1.5px dotted #94a3b8;
+    margin: 0 6px 3px 6px;
+    min-width: 20px;
+  }
+  .rpt-toc-score {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+}
