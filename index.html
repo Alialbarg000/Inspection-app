@@ -9,10 +9,32 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
 
 </head>
 <body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ACCESS GATE OVERLAY
+═══════════════════════════════════════════════════════════ -->
+<div id="access-gate" class="access-gate">
+  <div class="ag-card">
+    <div class="ag-logo">⚓</div>
+    <div class="ag-title">Sansoon <strong>Survey</strong> Pro</div>
+    <div class="ag-sub">Enter your access key to continue</div>
+    <div class="ag-input-wrap">
+      <input id="ag-key-input" class="ag-input" type="password"
+        placeholder="Access key" autocomplete="off" spellcheck="false">
+    </div>
+    <div id="ag-error" class="ag-error" style="display:none;"></div>
+    <button id="ag-verify-btn" class="ag-btn">
+      <span id="ag-btn-label">Verify Key</span>
+    </button>
+    <div class="ag-footer">Sansoon Yacht Services — Authorized Personnel Only</div>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- ═══════════════════════════════════════════════════════════
