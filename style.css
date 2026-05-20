@@ -1242,6 +1242,7 @@ select.f-input { cursor: pointer; }
   .search-wrap { display: block; max-width: 260px; }
   .global-search { font-size: 15px; }
   .btn-label { display: inline; }
+  .catbar { display: none !important; }
 
   .topbar { padding: 0 16px; gap: 10px; }
   .brand-sub { display: none; }
