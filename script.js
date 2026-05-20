@@ -1268,7 +1268,7 @@ document.addEventListener('keydown', e => {
 // ───────────────────────────────────────────────────────────────
 function openReport() { Nav.push('report'); showView('report'); buildReport(); }
 
-function buildReport() {
+async function buildReport() {
   const I = {
     vessel:   $('v-name').value    || 'Unnamed Vessel',
     hin:      $('v-hin').value     || '—',
@@ -1380,13 +1380,12 @@ function buildReport() {
 // Resolve vessel cover photo for screen/print render
   let _screenVesselSrc = '';
   if (State.vesselPhoto) {
-    if (typeof State.vesselPhoto === 'string' && State.vesselPhoto.startsWith('data:')) {
+    if (State.vesselPhoto.startsWith('data:')) {
       _screenVesselSrc = State.vesselPhoto;
-    } else if (typeof loadPhotoIDB === 'function') {
-      try { _screenVesselSrc = await loadPhotoIDB(State.vesselPhoto); } catch(e) {}
+    } else {
+      try { _screenVesselSrc = await loadPhotoIDB(State.vesselPhoto); } catch(e) { _screenVesselSrc = ''; }
     }
   }
-  
   $('report-body').innerHTML = `
     <div class="rpt-cover">
       <div class="rpt-cvr-top">
