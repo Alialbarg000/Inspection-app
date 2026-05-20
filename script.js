@@ -2327,11 +2327,14 @@ document.addEventListener('DOMContentLoaded', () => {
   $('tray-close-btn').addEventListener('click', () => { closeNoteTray(); refreshAll(); });
   $('tray-overlay').addEventListener('click',   () => { closeNoteTray(); refreshAll(); });
 
-  // On desktop the tray IS the backdrop; close only when clicking the backdrop itself,
+ // On desktop the tray IS the backdrop; close only when clicking the backdrop itself,
   // not when the click originates from inside the card content.
-  $('note-tray').addEventListener('click', e => {
-    if (e.target === $('note-tray')) { closeNoteTray(); refreshAll(); }
-  });
+  const _noteTray = $('note-tray');
+  if (_noteTray) {
+    _noteTray.addEventListener('click', e => {
+      if (e.target === _noteTray) { closeNoteTray(); refreshAll(); }
+    });
+  }
   document.querySelectorAll('.tray-pri-btn').forEach(b =>
     b.addEventListener('click', () => setTrayPriority(b.dataset.pri)));
   $('photo-add-btn').addEventListener('click', triggerPhotoUpload);
