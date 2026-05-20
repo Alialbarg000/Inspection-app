@@ -830,12 +830,16 @@ select.f-input { cursor: pointer; }
   gap: 10px;
   margin-top: 6px;
 }
-.rpt-appendix-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
-  break-inside: avoid;
+@media (min-width: 900px) {
+  .rpt-appendix-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.rpt-appendix-card .rpt-photo-img {
+  width: 100%;
+  max-height: 180px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  display: block;
+  object-fit: contain;
 }
 .rpt-appendix-card .rpt-photo-img {
   width: 100%;

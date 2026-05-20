@@ -1506,6 +1506,7 @@ async function buildReport() {
 // §14  PDF EXPORT
 // ───────────────────────────────────────────────────────────────
 async function downloadPDF() {
+  const includeAll = document.getElementById('pdf-include-all') ? document.getElementById('pdf-include-all').checked : true;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const W=210, M=15, CW=W-M*2;
@@ -1752,6 +1753,7 @@ async function downloadPDF() {
   }
 
   // ── Detail breakdown — light mode ────────────────────────────
+  const pdfAppendixItems = [];
   for (const cat of DB) {
     chk(14);
     fill(241,245,249); doc.roundedRect(M,y,CW,9,2,2,'F');
@@ -1762,33 +1764,120 @@ async function downloadPDF() {
       chk(9);
       fill(248,250,252); doc.rect(M,y,CW,7,'F');
       setF(8,'bold'); clr(30,58,138); doc.text(sub.label, M+4, y+5); y+=9;
-      for (const item of sub.items) {
-        chk(7);
-        const s=State.items[item.id];
-        const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
-        const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
-        setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
-        setF(7,'normal'); clr(30,41,59);
-        const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
-        if (s.finding.active) {
-          const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
-          const hasCost2 = s.finding.cost && parseFloat(s.finding.cost)>0;
-          if (hasCost2) {
-            setF(7,'bold'); clr(5,120,60); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
-            setF(7,'bold'); clr(...fc); doc.text(`[P${s.finding.priority||'C'}]`, W-M-2-18, y+4.5, {align:'right'});
-          } else { setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'}); }
+
+      if (includeAll) {
+        // ── FULL mode: render every item row ──────────────────────
+        for (const item of sub.items) {
+          chk(7);
+          const s=State.items[item.id];
+          const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
+          const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
+          setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
+          setF(7,'normal'); clr(30,41,59);
+          const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
+          if (s.finding.active) {
+            const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
+            const hasCost2 = s.finding.cost && parseFloat(s.finding.cost)>0;
+            if (hasCost2) {
+              setF(7,'bold'); clr(5,120,60); doc.text(fmt$(parseFloat(s.finding.cost)), W-M-2, y+4.5, {align:'right'});
+              setF(7,'bold'); clr(...fc); doc.text(`[P${s.finding.priority||'C'}]`, W-M-2-18, y+4.5, {align:'right'});
+            } else { setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'}); }
+          }
+          y += ll.length*4+1;
+          if (s.finding.active && s.finding.note) {
+            chk(6);
+            const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
+            setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+          }
+          draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
         }
-        y += ll.length*4+1;
-        if (s.finding.active && s.finding.note) {
-          chk(6);
-          const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
-          setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+      } else {
+        // ── COMPRESSED mode: summarize satisfactory, collect findings for appendix ──
+        const satNames = [];
+        for (const item of sub.items) {
+          const s = State.items[item.id];
+          const isSat = (s.status === 'done' || s.status === 'na') && !s.finding.active;
+          if (isSat) {
+            satNames.push(item.label);
+          } else {
+            chk(7);
+            const sl={null:'—',progress:'In Progress',done:'PASS',na:'N/A'}[s.status]||'—';
+            const sc={null:[148,163,184],progress:[161,75,0],done:[5,120,60],na:[71,85,105]}[s.status]||[148,163,184];
+            setF(7,'bold'); clr(...sc); doc.text(sl, M+2, y+4.5);
+            setF(7,'normal'); clr(30,41,59);
+            const ll=doc.splitTextToSize(item.label, CW-36); doc.text(ll, M+14, y+4.5);
+            if (s.finding.active) {
+              const fc={A:[192,25,44],B:[161,75,0],C:[37,99,235]}[s.finding.priority||'C'];
+              setF(7,'bold'); clr(...fc); doc.text(`[PRI ${s.finding.priority||'C'}]`, W-M-2, y+4.5, {align:'right'});
+              if (s.finding.photo || s.finding.note || s.finding.priority) {
+                pdfAppendixItems.push({
+                  cat: cat.label, sub: sub.label, item: item.label,
+                  note: s.finding.note, photo: s.finding.photo,
+                  priority: s.finding.priority
+                });
+              }
+            }
+            y += ll.length*4+1;
+            if (s.finding.active && s.finding.note) {
+              chk(6);
+              const nl=doc.splitTextToSize(`  > ${s.finding.note}`, CW-20);
+              setF(7,'italic'); clr(100,116,139); doc.text(nl, M+14, y); y+=nl.length*3.5+1;
+            }
+            draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
+          }
         }
-        draw(226,232,240); doc.line(M+12,y,M+CW,y); y+=2;
+        if (satNames.length) {
+          chk(8);
+          const satLine = doc.splitTextToSize(`✓ Found Satisfactory: ${satNames.join(', ')}.`, CW-4);
+          fill(240,253,244); doc.roundedRect(M,y,CW,satLine.length*4+4,2,2,'F');
+          setF(7,'normal'); clr(5,120,60); doc.text(satLine, M+3, y+4); y+=satLine.length*4+6;
+        }
       }
       y+=3;
     }
     y+=4;
+  }
+
+  // ── Findings Appendix (compressed mode only) ─────────────────
+  if (!includeAll && pdfAppendixItems.length) {
+    doc.addPage(); y=22;
+    fill(255,255,255); doc.rect(0,0,210,297,'F');
+    setF(12,'bold'); clr(15,23,42); doc.text('FINDINGS & PHOTOS APPENDIX', M, y); y+=5;
+    fill(30,58,138); doc.rect(M,y,CW,1.2,'F'); y+=8;
+    const APX_COLS=2, APX_CARD_W=(CW-6)/APX_COLS, APX_PHOTO_H=40;
+    let apxCol=0, apxRowTop=y;
+    for (const f of pdfAppendixItems) {
+      const resolvedPhoto = await resolvePhoto(f.photo);
+      const cardH = (resolvedPhoto ? APX_PHOTO_H+4 : 0) + 18;
+      if (apxCol === 0) {
+        chk(cardH+2); apxRowTop=y;
+      }
+      const cardX = M + apxCol*(APX_CARD_W+6);
+      fill(248,250,252); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'F');
+      draw(203,213,225); doc.setLineWidth(0.3); doc.roundedRect(cardX,apxRowTop,APX_CARD_W,cardH,2,2,'S');
+      let cy=apxRowTop+4;
+      if (resolvedPhoto) {
+        try {
+          const _ai=new Image();
+          await new Promise(res=>{ _ai.onload=res; _ai.onerror=res; _ai.src=resolvedPhoto; });
+          const _aw=_ai.naturalWidth||1, _ah=_ai.naturalHeight||1;
+          const _scale=Math.min(APX_CARD_W/_aw, APX_PHOTO_H/_ah);
+          const _dw=_aw*_scale, _dh=_ah*_scale;
+          const _dx=cardX+(APX_CARD_W-_dw)/2;
+          fill(226,232,240); doc.roundedRect(cardX+1,cy,APX_CARD_W-2,APX_PHOTO_H,1,1,'F');
+          doc.addImage(resolvedPhoto,'JPEG',_dx,cy+(APX_PHOTO_H-_dh)/2,_dw,_dh,undefined,'FAST');
+          cy+=APX_PHOTO_H+3;
+        } catch(e) { cy+=2; }
+      }
+      const pc={A:[192,25,44],B:[161,75,0],C:[37,99,235]};
+      if (f.priority) { setF(6,'bold'); clr(...(pc[f.priority]||[71,85,105])); doc.text(`PRI ${f.priority}`, cardX+2, cy+3); }
+      setF(6.5,'bold'); clr(15,23,42);
+      const il=doc.splitTextToSize(f.item, APX_CARD_W-4); doc.text(il, cardX+2, cy+(f.priority?7:4));
+      if (f.note) { setF(6,'italic'); clr(100,116,139); const nl=doc.splitTextToSize(f.note, APX_CARD_W-4); doc.text(nl, cardX+2, cy+(f.priority?7:4)+il.length*3.5); }
+      apxCol++;
+      if (apxCol >= APX_COLS) { apxCol=0; y=apxRowTop+cardH+4; }
+    }
+    if (apxCol > 0) y=apxRowTop+((pdfAppendixItems.length%APX_COLS===0?0:1)*60)+4;
   }
 
   // ── Repair cost estimate page — light mode ────────────────────
