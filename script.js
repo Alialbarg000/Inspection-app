@@ -1656,12 +1656,19 @@ async function downloadPDF() {
         const nl=doc.splitTextToSize(`"${f.note}"`, CW-10);
         setF(8,'italic'); clr(71,85,105); doc.text(nl, M+5, y); y+=nl.length*4.5+2;
       }
-      if (f.photo) {
-        chk(58);
+     if (f.photo) {
         try {
-          fill(241,245,249); doc.roundedRect(M,y,CW,54,2,2,'F');
-          doc.addImage(f.photo,'JPEG',M+1,y+1,CW-2,52,undefined,'FAST');
-          y+=56;
+          const _fi = new Image();
+          await new Promise(res => { _fi.onload = res; _fi.onerror = res; _fi.src = f.photo; });
+          const _fiw = _fi.naturalWidth || 1, _fih = _fi.naturalHeight || 1;
+          const _fMaxW = CW - 2, _fMaxH = 54;
+          const _fScale = Math.min(_fMaxW / _fiw, _fMaxH / _fih);
+          const _fdw = _fiw * _fScale, _fdh = _fih * _fScale;
+          const _fdx = M + 1 + (_fMaxW - _fdw) / 2;
+          chk(_fdh + 6);
+          fill(241,245,249); doc.roundedRect(M, y, CW, _fdh + 2, 2, 2, 'F');
+          doc.addImage(f.photo, 'JPEG', _fdx, y + 1, _fdw, _fdh, undefined, 'FAST');
+          y += _fdh + 4;
         } catch(e) {}
       }
       draw(203,213,225); doc.line(M+3,y+2,M+CW,y+2); y+=7;
