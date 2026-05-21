@@ -3230,4 +3230,6 @@ document.addEventListener('DOMContentLoaded', () => {
       renderProgress();
       refreshAll();
     }
+
+}); // ← closes DOMContentLoaded
    

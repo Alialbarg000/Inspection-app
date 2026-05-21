@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0f172a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
 <title>Sansoon Yacht Services — Marine Survey Pro</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -461,6 +462,7 @@
 
 <script>
 const PROFILE_KEY = 'sansoon_surveyor_profile';
+const PROFILE_LS_KEY = 'sansoon_surveyor_profile'; // alias for script.js compatibility
 
 function getSurveyorProfile() {
   try {
@@ -678,11 +680,6 @@ function renderDashboard() {
   }
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
 
 // ── Placeholder functions for project actions ──
 function loadProject(id) {
@@ -789,24 +786,7 @@ function initSplashForm() {
     });
   }
 }
-
-// ── Initialize on DOM Ready ──
-document.addEventListener('DOMContentLoaded', function() {
-  initAccessGate();
-  initSurveyorProfileModal();
-  initDashboardButton();
-  initSplashForm();
-
-  // Fix: Add Custom Item button behavior
-  const addCustomBtn = document.getElementById('add-custom-item-btn');
-  if (addCustomBtn) {
-    addCustomBtn.addEventListener('click', function() {
-      // Logic to add item goes here (placeholder)
-      showToast('Custom item prepared (Requires script.js logic)');
-      const workArea = document.getElementById('work-area');
-      if (workArea) workArea.scrollTop = 0;
-    });
-  }
+  
 
   // Fix: "View Report as PDF" button click handler
   const btnViewPdf = document.getElementById('btn-view-pdf');
@@ -846,10 +826,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
-<div class="toast" id="toast">
-  <div class="toast-dot"></div>
-  <span id="toast-msg"></span>
-</div>
+</script>
 
 <script src="script.js"></script>
 </body>
