@@ -1152,16 +1152,15 @@ function showBackToSplashConfirm() {
 function updateBackBtn() {
   const btn = document.getElementById('back-btn');
   if (!btn) return;
+  const hubBtn = document.getElementById('hub-btn');
   // On dashboard, hide back button (no going back to splash)
   if (Nav.current() === 'dashboard') {
     btn.style.display = 'none';
-    const hubBtn = document.getElementById('hub-btn');
     if (hubBtn) hubBtn.style.display = 'none';
     return;
   }
   const show = Nav.stack.length > 1 || Nav.noteTrayOpen || Nav.openAccordion !== null;
   btn.style.display = show ? 'inline-flex' : 'none';
-  const hubBtn = document.getElementById('hub-btn');
   if (hubBtn) hubBtn.style.display = (Nav.current() === 'category') ? 'inline-flex' : 'none';
 }
 
