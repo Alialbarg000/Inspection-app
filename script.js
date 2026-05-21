@@ -3230,6 +3230,4 @@ document.addEventListener('DOMContentLoaded', () => {
       renderProgress();
       refreshAll();
     }
-    history.replaceState({ appNav: true, depth: Nav.stack.length }, '');
-  });
-// NOTE: Deleted the stray '}' that was here.
+   
