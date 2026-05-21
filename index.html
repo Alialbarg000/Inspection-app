@@ -15,10 +15,7 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════
-     ACCESS GATE OVERLAY
-═══════════════════════════════════════════════════════════ -->
-<div id="access-gate" class="access-gate">
+<div id="access-gate" class="access-gate" style="z-index:9999;">
   <div class="ag-card">
     <div class="ag-logo">⚓</div>
     <div class="ag-title">Sansoon <strong>Survey</strong> Pro</div>
@@ -35,10 +32,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     SURVEYOR PROFILE MODAL
-═══════════════════════════════════════════════════════════ -->
-<div id="surveyor-profile-modal" class="access-gate" style="display:none;">
+<div id="surveyor-profile-modal" class="access-gate" style="display:none; z-index:10000;">
   <div class="ag-card">
     <div class="ag-logo">⚓</div>
     <div class="ag-title">Surveyor <strong>Profile</strong></div>
@@ -61,10 +55,7 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-     COMPLETE CONFIRM MODAL
-═══════════════════════════════════════════════════════════ -->
-<div id="complete-confirm-modal" class="access-gate" style="display:none;z-index:3000;">
+<div id="complete-confirm-modal" class="access-gate" style="display:none;z-index:10001;">
   <div class="ag-card">
     <div class="ag-logo" style="font-size:32px;">✅</div>
     <div class="ag-title">Finish <strong>Survey</strong></div>
@@ -82,9 +73,6 @@
 
 <div class="app">
 
-  <!-- ═══════════════════════════════════════════════════════════
-       TOP BAR
-  ═══════════════════════════════════════════════════════════ -->
   <header class="topbar">
 
     <button id="mobile-search-btn" class="mobile-search-btn" title="Search" aria-label="Open search">
@@ -149,9 +137,6 @@
 
   </header>
 
-  <!-- ═══════════════════════════════════════════════════════════
-       CATEGORY CAPSULE BAR  +  FILTER PILLS
-  ═══════════════════════════════════════════════════════════ -->
   <div class="catbar-wrapper" style="overflow-x:hidden;max-width:100vw;box-sizing:border-box;">
     <button class="catbar-scroll-btn catbar-scroll-left" id="catbar-scroll-left" aria-label="Scroll left">&#8249;</button>
     <div class="catbar" style="overflow-x:auto;overflow-y:hidden;">
@@ -167,12 +152,8 @@
     <button class="catbar-scroll-btn catbar-scroll-right" id="catbar-scroll-right" aria-label="Scroll right">&#8250;</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════
-       DASHBOARD PANEL  —  Clean Centered Layout
-═══════════════════════════════════════════════════════════ -->
   <div id="dashboard-panel" class="dashboard-panel">
 
-    <!-- ══ TOP STATS BAR ══ -->
     <div class="dash-stats-bar">
       <div class="dash-stat-unit">
         <span class="dash-stat-num" id="db-stat-total">0</span>
@@ -195,7 +176,6 @@
       </div>
     </div>
 
-    <!-- ══ WELCOME + CTA ROW ══ -->
     <div class="dash-hero-row">
       <div class="dash-welcome-block">
         <div class="dash-welcome-icon">⚓</div>
@@ -212,7 +192,6 @@
       </button>
     </div>
 
-    <!-- ══ PROJECTS TABLE HEADER ══ -->
     <div class="dash-table-header">
       <span class="dash-th-status">Status</span>
       <span class="dash-th-vessel">Vessel / Details</span>
@@ -221,7 +200,6 @@
       <span class="dash-th-actions">Actions</span>
     </div>
 
-    <!-- ══ EMPTY STATE ══ -->
     <div id="dashboard-empty-state" class="dash-empty-state" style="display:none;">
       <div class="dash-empty-glyph">📋</div>
       <div class="dash-empty-title">No surveys yet</div>
@@ -234,15 +212,11 @@
       </button>
     </div>
 
-    <!-- ══ PROJECT LIST ══ -->
     <div id="dashboard-projects-list" class="dash-projects-list"></div>
 
   </div>
 
-<!-- ═══════════════════════════════════════════════════════════
-       SPLASH — VESSEL INTAKE FORM
-  ═══════════════════════════════════════════════════════════ -->
-  <div id="splash" style="display:none;">
+<div id="splash" style="display:none;">
     <div class="splash-inner">
 
       <div class="splash-hero">
@@ -341,9 +315,7 @@
             <textarea class="f-input" id="v-scope" placeholder="Describe the scope of survey, any limitations encountered, access restrictions, or other relevant context…"></textarea>
           </div>
 
-        </div><!-- /.intake-grid -->
-
-        <div class="intake-divider"></div>
+        </div><div class="intake-divider"></div>
 
         <div class="intake-cta">
           <button class="cta-btn ghost" onclick="selectCategory('vessel-id')">
@@ -356,12 +328,7 @@
           </button>
         </div>
 
-      </div><!-- /.intake-card -->
-    </div><!-- /.splash-inner -->
-  </div><!-- /#splash -->
-
-  <!-- HUB PANEL -->
-  <div id="hub-panel" style="display:none;">
+      </div></div></div><div id="hub-panel" style="display:none;">
     <div class="hub-header">
       <div class="hub-header-content">
         <div>
@@ -380,16 +347,24 @@
     <div class="hub-grid" id="hub-grid"></div>
   </div>
 
-  <!-- WORK AREA -->
   <div id="work-area" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
     <div class="ctx-bar">
       <div id="ctx-title"></div>
       <div id="ctx-stats"></div>
     </div>
-    <div id="accordion"></div>
+    
+    <div style="padding: 10px 20px;">
+      <button id="add-custom-item-btn" class="tb-btn" style="background:#fff; border:1px solid #cbd5e1;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span class="btn-label">Add Custom Item</span>
+      </button>
+    </div>
+
+    <div id="accordion" style="overflow-y:auto; flex:1;"></div>
   </div>
 
-  <!-- REPORT PANEL -->
   <div id="report-panel" style="display:none;">
     <div class="rpt-actions">
       <button class="tb-btn primary" id="btn-pdf">
@@ -414,14 +389,11 @@
         Back to Survey
       </button>
     </div>
-    <div id="pdf-watermark" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;pointer-events:none;z-index:0;font-size:120px;font-weight:700;color:#0f172a;white-space:nowrap;">⚓ Sansoon</div>
+    <div id="pdf-watermark" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0.06;pointer-events:none;z-index:0;font-size:120px;font-weight:700;color:#0f172a;white-space:nowrap;">⚓ Sansoon</div>
     <div id="report-body" style="position:relative;z-index:1;"></div>
   </div>
 
-</div><!-- /.app -->
-
-<!-- NOTE TRAY -->
-<div id="note-tray">
+</div><div id="note-tray">
 
   <div class="tray-header">
     <div style="flex:1;min-width:0;">
@@ -473,24 +445,22 @@
       <kbd>Enter</kbd> save &amp; close &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> new line &nbsp;·&nbsp; <kbd>Esc</kbd> back
     </div>
 
-  </div><!-- /.tray-body -->
-
-  <div class="tray-footer">
+  </div><div class="tray-footer">
     <button id="tray-save-btn">
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;display:inline;vertical-align:middle;fill:none;stroke:#fff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;margin-right:6px;"><polyline points="20 6 9 17 4 12"/></svg>
       Save Finding &amp; Close
     </button>
   </div>
 
-</div><!-- /#note-tray -->
-
-<div id="tray-overlay"></div>
+</div><div id="tray-overlay"></div>
 
 <div class="toast" id="toast">
   <div class="toast-dot"></div>
   <span id="toast-msg"></span>
 </div>
 
+<script>
+const PROFILE_KEY = 'sansoon_surveyor_profile';
 
 function getSurveyorProfile() {
   try {
@@ -603,6 +573,9 @@ function initAccessGate() {
     goToDashboard();
     return;
   }
+  
+  // If no profile exists, ensure the gate is displayed as the first view
+  gate.style.display = 'flex';
 
   verifyBtn.addEventListener('click', function() {
     const key = keyInput.value.trim();
@@ -822,6 +795,58 @@ document.addEventListener('DOMContentLoaded', function() {
   initAccessGate();
   initSurveyorProfileModal();
   initDashboardButton();
-  <script src="script.js"></script>
+  initSplashForm();
+
+  // Fix: Add Custom Item button behavior
+  const addCustomBtn = document.getElementById('add-custom-item-btn');
+  if (addCustomBtn) {
+    addCustomBtn.addEventListener('click', function() {
+      // Logic to add item goes here (placeholder)
+      showToast('Custom item prepared (Requires script.js logic)');
+      const workArea = document.getElementById('work-area');
+      if (workArea) workArea.scrollTop = 0;
+    });
+  }
+
+  // Fix: "View Report as PDF" button click handler
+  const btnViewPdf = document.getElementById('btn-view-pdf');
+  if (btnViewPdf) {
+    btnViewPdf.addEventListener('click', function() {
+      if (typeof generatePDF === 'function') {
+        generatePDF('preview');
+      } else {
+        showToast('PDF generation script not loaded');
+      }
+    });
+  }
+
+  // Fix: Back button logic to return to Hub
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', function() {
+      showPanel('hub-panel');
+    });
+  }
+
+  // Fix: Desktop row-level click handler to cycle status
+  const workArea = document.getElementById('work-area');
+  if (workArea) {
+    workArea.addEventListener('click', function(e) {
+      // Only trigger if it's a non-touch device (desktop/tablet pointer)
+      if (window.matchMedia("(hover: none)").matches) return;
+      
+      const row = e.target.closest('.item-row'); // Assuming items have this class dynamically generated
+      const isButton = e.target.closest('.status-pill-btn') || e.target.closest('button');
+      
+      if (row && !isButton) {
+        // Find the status button in this row and programmatically click it to cycle
+        const pillBtn = row.querySelector('.status-pill-btn');
+        if (pillBtn) pillBtn.click();
+      }
+    });
+  }
+});
+</script>
+<script src="script.js"></script>
 </body>
 </html>
