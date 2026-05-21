@@ -3223,11 +3223,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!hasProfile && gatePassed) {
       // Gate passed but no profile → show profile modal (it will redirect to dashboard after save)
       showSurveyorProfileModal();
-    } else {
+        } else {
       // Access gate still showing or no profile
       showView('splash');
       renderCategoryBar();
       renderProgress();
       refreshAll();
     }
-   
+});
