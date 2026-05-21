@@ -1163,7 +1163,7 @@ function showView(view) {
   const hub = document.getElementById('hub-panel');
   if (hub) hub.style.display = view === 'hub' ? 'block' : 'none';
   const dash = document.getElementById('dashboard-panel');
-  if (dash) dash.style.display = view === 'dashboard' ? 'flex' : 'none';
+  if (dash) dash.style.display = view === 'dashboard' ? 'block' : 'none';
   document.getElementById('work-area').style.display    = view === 'category' ? 'flex'  : 'none';
   document.getElementById('report-panel').style.display = view === 'report'   ? 'block' : 'none';
   updateBackBtn();
@@ -3223,11 +3223,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!hasProfile && gatePassed) {
       // Gate passed but no profile → show profile modal (it will redirect to dashboard after save)
       showSurveyorProfileModal();
-        } else {
+    } else {
       // Access gate still showing or no profile
       showView('splash');
       renderCategoryBar();
       renderProgress();
       refreshAll();
     }
-});
+   
