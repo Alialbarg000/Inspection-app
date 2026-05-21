@@ -3148,7 +3148,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const _btnViewPdf = $('btn-view-pdf');
   if (_btnViewPdf) _btnViewPdf.addEventListener('click', () => generatePDF('preview'));
   // FIX #6: Download PDF button shows "Download Only" / "Yes, Complete" modal
-  $('btn-pdf').addEventListener('click', () => generatePDF('download'));
+  const _btnPdf = $('btn-pdf');
+  if (_btnPdf) _btnPdf.addEventListener('click', () => generatePDF('download'));
   $('btn-refresh-rpt').addEventListener('click', buildReport);
   $('btn-back-survey').addEventListener('click', () => {
     if (Nav.current()==='report' && Nav.stack.length>1) Nav.stack.pop();
