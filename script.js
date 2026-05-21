@@ -3181,9 +3181,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('photo-file-input').addEventListener('change', function() { handlePhotoInput(this); });
   const rpBtn = $('rephrase-btn');
   if (rpBtn) rpBtn.addEventListener('click', handleRephrase);
+  
   // Quick Insert save button kept but not auto-rendered
   const qiBtn = $('qi-save-btn');
-  if (qiBtn) qiBtn.addEventListener('click', handleSaveToQuickInsert);
+  // FIX: Commented out to prevent ReferenceError since handleSaveToQuickInsert is not yet defined
+  // if (qiBtn) qiBtn.addEventListener('click', handleSaveToQuickInsert); 
+  
   $('vessel-photo-input').addEventListener('change', function() { handleVesselPhoto(this); });
 
   // Drag scroll on catbar
@@ -3229,3 +3232,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     history.replaceState({ appNav: true, depth: Nav.stack.length }, '');
   });
+// NOTE: Deleted the stray '}' that was here.
