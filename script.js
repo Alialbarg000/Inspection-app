@@ -3145,8 +3145,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-report').addEventListener('click', openReport);
  // Event delegation for dynamically rendered PDF buttons
   document.addEventListener('click', (e) => {
-    if (e.target.id === 'btn-view-pdf') generatePDF('preview');
-    if (e.target.id === 'btn-pdf') generatePDF('download');
+    if (e.target.closest('#btn-view-pdf')) generatePDF('preview');
+    if (e.target.closest('#btn-pdf')) generatePDF('download');
   });
   $('btn-refresh-rpt').addEventListener('click', buildReport);
   $('btn-back-survey').addEventListener('click', () => {
@@ -3263,13 +3263,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (!hasProfile && gatePassed) {
       // Gate passed but no profile → show profile modal (it will redirect to dashboard after save)
       showSurveyorProfileModal();
-    } else {
-      // Access gate still showing or no profile
-      showView('splash');
-      renderCategoryBar();
-      renderProgress();
-      refreshAll();
     }
+    // else: access gate is still visible — do nothing; gate callbacks handle navigation after auth
 
 }); // ← closes DOMContentLoaded
    
