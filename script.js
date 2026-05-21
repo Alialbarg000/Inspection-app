@@ -1163,7 +1163,7 @@ function showView(view) {
   const hub = document.getElementById('hub-panel');
   if (hub) hub.style.display = view === 'hub' ? 'block' : 'none';
   const dash = document.getElementById('dashboard-panel');
-  if (dash) dash.style.display = view === 'dashboard' ? 'block' : 'none';
+  if (dash) dash.style.display = view === 'dashboard' ? 'flex' : 'none';
   document.getElementById('work-area').style.display    = view === 'category' ? 'flex'  : 'none';
   document.getElementById('report-panel').style.display = view === 'report'   ? 'block' : 'none';
   updateBackBtn();
