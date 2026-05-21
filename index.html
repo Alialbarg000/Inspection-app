@@ -787,44 +787,8 @@ function initSplashForm() {
   }
 }
   
-
-  // Fix: "View Report as PDF" button click handler
-  const btnViewPdf = document.getElementById('btn-view-pdf');
-  if (btnViewPdf) {
-    btnViewPdf.addEventListener('click', function() {
-      if (typeof generatePDF === 'function') {
-        generatePDF('preview');
-      } else {
-        showToast('PDF generation script not loaded');
-      }
-    });
-  }
-
-  // Fix: Back button logic to return to Hub
-  const backBtn = document.getElementById('back-btn');
-  if (backBtn) {
-    backBtn.addEventListener('click', function() {
-      showPanel('hub-panel');
-    });
-  }
-
-  // Fix: Desktop row-level click handler to cycle status
-  const workArea = document.getElementById('work-area');
-  if (workArea) {
-    workArea.addEventListener('click', function(e) {
-      // Only trigger if it's a non-touch device (desktop/tablet pointer)
-      if (window.matchMedia("(hover: none)").matches) return;
-      
-      const row = e.target.closest('.item-row'); // Assuming items have this class dynamically generated
-      const isButton = e.target.closest('.status-pill-btn') || e.target.closest('button');
-      
-      if (row && !isButton) {
-        // Find the status button in this row and programmatically click it to cycle
-        const pillBtn = row.querySelector('.status-pill-btn');
-        if (pillBtn) pillBtn.click();
-      }
-    });
-  }
+  // NOTE: All primary event listeners are handled by script.js (DOMContentLoaded).
+  // This inline script only defines helper functions used by HTML onclick attributes.
 });
 </script>
 

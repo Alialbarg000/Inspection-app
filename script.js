@@ -36,11 +36,18 @@ async function saveProject() {
   const surveyorName = document.getElementById('v-surveyor') ? document.getElementById('v-surveyor').value : '';
   const date = document.getElementById('v-date') ? document.getElementById('v-date').value : new Date().toISOString().slice(0,10);
 
+  // FIX #7: Calculate progress from current State.items so dashboard shows accurate %
+  const allItemVals = Object.values(State.items);
+  const totalItems = allItemVals.length;
+  const doneItems = allItemVals.filter(i => i.status === 'done' || i.status === 'na').length;
+  const progressPct = totalItems ? Math.round((doneItems / totalItems) * 100) : 0;
+
   const project = {
     id: _currentProjectId || 'proj-' + Date.now(),
     vesselName: vesselName,
     surveyorName: surveyorName,
     date: date,
+    progress: progressPct,
     status: _currentProjectId ? (await loadProjectById(_currentProjectId)).status : 'in-progress',
     data: JSON.stringify({
       vesselFields: {
@@ -665,7 +672,7 @@ function deleteQuickInsert(idx) {
 
 const DB = [
   {
-    id:'vessel-id', label:'Vessel ID & Docs', icon:'📋',
+    id:'vessel-id', label:'Vessel ID & Docs', icon:'<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
     subcategories:[
       { id:'vid-reg', label:'Registration & Documentation', items:[
         {id:'vd01',label:'Hull Identification Number (HIN) — present, legible, matches title'},
@@ -689,7 +696,7 @@ const DB = [
     ]
   },
   {
-    id:'hull-exterior', label:'Hull Exterior', icon:'⚓',
+    id:'hull-exterior', label:'Hull Exterior', icon:'<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
     subcategories:[
       { id:'hx-bottom', label:'Bottom & Topsides', items:[
         {id:'hx01',label:'Antifouling paint — coverage, condition, appropriate type for use'},
@@ -721,7 +728,7 @@ const DB = [
     ]
   },
   {
-    id:'deck-structure', label:'Deck & Hardware', icon:'🏗️',
+    id:'deck-structure', label:'Deck & Hardware', icon:'<svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
     subcategories:[
       { id:'dk-surface', label:'Deck Surface & Coring', items:[
         {id:'dk01',label:'Non-skid surface — condition, wear, cracking, tripping hazards'},
@@ -754,7 +761,7 @@ const DB = [
     ]
   },
   {
-    id:'rig-spars', label:'Rig & Sails', icon:'⛵',
+    id:'rig-spars', label:'Rig & Sails', icon:'<svg viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>',
     subcategories:[
       { id:'rg-standing', label:'Standing Rigging', items:[
         {id:'rg01',label:'Wire rigging age — date stamps checked, flag if >10 years or unknown'},
@@ -786,7 +793,7 @@ const DB = [
     ]
   },
   {
-    id:'cabin-interior', label:'Cabin & Interior', icon:'🛖',
+    id:'cabin-interior', label:'Cabin & Interior', icon:'<svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
     subcategories:[
       { id:'ci-structure', label:'Structural Elements', items:[
         {id:'ci01',label:'Main structural bulkheads — tabbing intact, no delamination, no crack propagation'},
@@ -817,7 +824,7 @@ const DB = [
     ]
   },
   {
-    id:'engine-mechanical', label:'Engine & Mechanical', icon:'⚙️',
+    id:'engine-mechanical', label:'Engine & Mechanical', icon:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>',
     subcategories:[
       { id:'en-engine', label:'Main Engine', items:[
         {id:'en01',label:'Engine make, model, hours — recorded from hour meter'},
@@ -841,7 +848,7 @@ const DB = [
     ]
   },
   {
-    id:'electrical', label:'Electrical Systems', icon:'⚡',
+    id:'electrical', label:'Electrical Systems', icon:'<svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
     subcategories:[
       { id:'el-dc', label:'DC Systems', items:[
         {id:'el01',label:'Battery bank — age, state of charge, terminal condition, secure'},
@@ -866,7 +873,7 @@ const DB = [
     ]
   },
   {
-    id:'safety-equipment', label:'Safety & Gear', icon:'🦺',
+    id:'safety-equipment', label:'Safety & Gear', icon:'<svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
     subcategories:[
       { id:'sf-personal', label:'Personal Safety', items:[
         {id:'sf01',label:'PFDs — one per person, USCG-approved type, condition, accessible'},
@@ -888,7 +895,7 @@ const DB = [
     ]
   },
   {
-    id:'plumbing', label:'Plumbing & Bilge', icon:'🚿',
+    id:'plumbing', label:'Plumbing & Bilge', icon:'<svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>',
     subcategories:[
       { id:'pl-fresh', label:'Fresh Water System', items:[
         {id:'pl01',label:'Fresh water tank — capacity, fill deck fitting, vent, material'},
@@ -908,7 +915,7 @@ const DB = [
     ]
   },
   {
-    id:'nav-electronics', label:'Nav & Electronics', icon:'🧭',
+    id:'nav-electronics', label:'Nav & Electronics', icon:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
     subcategories:[
       { id:'ne-nav', label:'Navigation Electronics', items:[
         {id:'ne01',label:'Chartplotter / MFD — operation, chart currency, antenna connection'},
@@ -928,7 +935,7 @@ const DB = [
     ]
   },
   {
-    id:'lpg-fuel', label:'LPG & Fuel Systems', icon:'🔥',
+    id:'lpg-fuel', label:'LPG & Fuel Systems', icon:'<svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
     subcategories:[
       { id:'lp-lpg', label:'LPG / Propane', items:[
         {id:'lp01',label:'LPG locker — dedicated, overboard drain, no ignition sources'},
@@ -948,7 +955,7 @@ const DB = [
     ]
   },
   {
-    id:'anchoring', label:'Anchoring & Mooring', icon:'⛓️',
+    id:'anchoring', label:'Anchoring & Mooring', icon:'<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>',
     subcategories:[
       { id:'an-ground', label:'Ground Tackle', items:[
         {id:'an01',label:'Primary anchor — type, weight appropriate for vessel, condition'},
@@ -966,7 +973,7 @@ const DB = [
     ]
   },
   {
-    id:'bilge-systems', label:'Bilge & Flooding', icon:'💧',
+    id:'bilge-systems', label:'Bilge & Flooding', icon:'<svg viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="6"/><path d="M5 10c0 5.523 3.134 10 7 10s7-4.477 7-10"/><path d="M7 10c0 3.866 2.239 7 5 7s5-3.134 5-7"/><line x1="3" y1="6" x2="5" y2="10"/><line x1="19" y1="6" x2="21" y2="10"/><line x1="8" y1="3" x2="7" y2="6"/><line x1="16" y1="3" x2="17" y2="6"/></svg>',
     subcategories:[
       { id:'bg-pumps', label:'Bilge Pumps & Alarms', items:[
         {id:'bg01',label:'Electric bilge pump — float switch, manual override, discharge routing'},
@@ -985,7 +992,7 @@ const DB = [
     ]
   },
   {
-    id:'canvas-covers', label:'Canvas & Covers', icon:'🧵',
+    id:'canvas-covers', label:'Canvas & Covers', icon:'<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
     subcategories:[
       { id:'cv-covers', label:'Covers & Enclosures', items:[
         {id:'cc01',label:'Dodger — frame, fabric, windows (clarity, crazing), zipper operation'},
@@ -998,7 +1005,7 @@ const DB = [
     ]
   },
   {
-    id:'dinghy-outboard', label:'Dinghy & Tender', icon:'🚣',
+    id:'dinghy-outboard', label:'Dinghy & Tender', icon:'<svg viewBox="0 0 24 24"><path d="M2 20a2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1 2.4 2.4 0 0 0 2 1 2.4 2.4 0 0 0 2-1 2.4 2.4 0 0 1 2-1 2.4 2.4 0 0 1 2 1"/><path d="M4 18l-1-5h18l-2 5"/><path d="M12 2v3"/><path d="m9 7 3-2 3 2"/></svg>',
     subcategories:[
       { id:'dy-dinghy', label:'Tender / Dinghy', items:[
         {id:'dy01',label:'Dinghy hull — condition, inflation (inflatable), structural integrity'},
@@ -1686,7 +1693,8 @@ function renderContextBar() {
   if (!cat) return;
   const st  = getStats(catItems(cat));
   const pct = st.total ? Math.round(((st.done + st.na) / st.total) * 100) : 0;
-  $('ctx-title').textContent = `${cat.icon}  ${cat.label}`;
+  // FIX #9: Use innerHTML so SVG icon strings render correctly
+  $('ctx-title').innerHTML = `<span style="display:inline-flex;align-items:center;width:22px;height:22px;flex-shrink:0;">${cat.icon}</span>&nbsp;&nbsp;${cat.label}`;
   $('ctx-stats').innerHTML = `
     <span class="ctx-chip done">${st.done} done</span>
     <span class="ctx-chip prog">${st.prog} in progress</span>
@@ -1997,13 +2005,14 @@ async function generatePDF(mode) {
     cardBrd:  [26, 37, 53],      // #1a2535  — card borders
     text:     [244, 241, 235],   // #f4f1eb  — warm white text
     textDim:  [148, 163, 184],   // #94a3b8  — muted text
-    accent:   [212, 175, 55],    // #d4af37  — gold accent
+    // FIX #8: Warm brass #c4a35a
+    accent:   [196, 163, 90],    // #c4a35a  — warm brass accent
     accentDim:[161, 139, 72],    // #a18b48  — dim gold
     priA:     [192, 25, 44],     // #c0192c  — red critical
     priB:     [161, 75, 0],      // #a14b00  — orange maintenance
-    priC:     [37, 99, 235],      // #2563eb  — blue observation
+    priC:     [37, 99, 235],     // #2563eb  — blue observation
     done:     [5, 120, 60],      // #05783c  — green done
-    na:       [71, 85, 105],      // #475569  — gray N/A
+    na:       [71, 85, 105],     // #475569  — gray N/A
     progress: [161, 75, 0],      // #a14b00  — amber in-progress
     photoBg:  [10, 18, 32],      // #0a1220  — photo letterbox
     line:     [26, 37, 53],      // #1a2535  — divider lines
@@ -2102,7 +2111,13 @@ async function generatePDF(mode) {
   let logoBottom = 14;
   const hasLogo = COMPANY_LOGO_BASE64 && COMPANY_LOGO_BASE64 !== 'PLACEHOLDER_LOGO_BASE64';
   if (hasLogo) {
-    try { doc.addImage('data:image/jpeg;base64,' + COMPANY_LOGO_BASE64, 'JPEG', W / 2 - 28, 6, 56, 28); logoBottom = 36; } catch (e) { }
+    try {
+      // FIX #5: Properly center logo — calculate width relative to page center
+      const logoW = 48, logoH = 24;
+      const logoX = (W - logoW) / 2;  // exact horizontal center
+      doc.addImage('data:image/jpeg;base64,' + COMPANY_LOGO_BASE64, 'JPEG', logoX, 7, logoW, logoH);
+      logoBottom = 7 + logoH + 2;
+    } catch (e) { }
   }
 
   // Company name in gold (only once — no duplicate)
@@ -2531,7 +2546,7 @@ function renderHub() {
     const st       = getStats(items);
     const completed= st.done + st.na;
     const pct      = st.total > 0 ? Math.round((completed / st.total) * 100) : 0;
-    const badgeBg  = pct===100 ? '#0d9450' : pct>=50 ? '#c58a00' : 'var(--accent,#c0192c)';
+    const badgeBg  = pct===100 ? '#0d9450' : pct>=50 ? '#b08840' : '#3a5070';
 
     const card = document.createElement('div');
     card.className = 'hub-card' +
@@ -2540,6 +2555,7 @@ function renderHub() {
       ' hub-card-entrance';
     card.style.animationDelay = `${idx * 0.05}s`;
 
+    // FIX #9: cat.icon is now an SVG string — wrap it in a div that has the svg styling
     card.innerHTML =
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">' +
         '<div class="hub-card-icon">' + cat.icon + '</div>' +
@@ -2556,7 +2572,7 @@ function renderHub() {
         '<div class="hub-progress-fill" style="width:' + pct + '%"></div>' +
       '</div>' +
       '<div class="hub-card-meta">' +
-        '<span class="hub-done-count">✅ ' + completed + ' / ' + st.total + '</span>' +
+        '<span class="hub-done-count">' + completed + ' / ' + st.total + '</span>' +
         (st.findings ? '<span class="hub-finding-dot">⚑' + st.findings + '</span>' : '') +
       '</div>';
 
@@ -2569,7 +2585,7 @@ function renderHub() {
   addCard.className = 'hub-card hub-add-card hub-card-entrance';
   addCard.style.animationDelay = `${DB.length * 0.05}s`;
   addCard.innerHTML =
-    '<div class="hub-card-icon">➕</div>' +
+    '<div class="hub-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>' +
     '<div class="hub-card-label">Create Custom Section</div>' +
     '<div style="font-size:12px;color:var(--text-dim);margin-top:4px">Add your own inspection category</div>';
   addCard.addEventListener('click', () => {
@@ -2918,7 +2934,7 @@ function saveCustomSections() {
 }
 function injectCustomSectionIntoDB(cs) {
   if (DB.find(c => c.id===cs.id)) return;
-  DB.push({ id:cs.id, label:cs.label, icon:'📝',
+  DB.push({ id:cs.id, label:cs.label, icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
     subcategories:[{ id:cs.id+'-sub', label:cs.label, items:cs.items }] });
   cs.items.forEach(it => {
     if (!State.items[it.id])
@@ -2952,14 +2968,19 @@ function appendAddItemButton(catId) {
   if (existing) existing.remove();
   const btn = document.createElement('button');
   btn.id='add-item-btn'; btn.className='add-item-btn';
-  btn.textContent='➕ Add Custom Item to This Section';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Custom Item to This Section';
   btn.addEventListener('click', () => {
     const label = prompt('Enter item description:');
     if (!label) return;
     addCustomItemToSection(catId, label);
     buildSearchIndex(); renderAccordion(); appendAddItemButton(catId); showToast('Item added');
   });
-  acc.appendChild(btn);
+  // FIX #4: Insert at top of accordion (prepend), not bottom
+  if (acc.firstChild) {
+    acc.insertBefore(btn, acc.firstChild);
+  } else {
+    acc.appendChild(btn);
+  }
 }
 
 // ── Inline label edit ─────────────────────────────────────────
@@ -3105,8 +3126,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.filter-pill').forEach(b =>
     b.addEventListener('click', () => setFilter(b.dataset.filter)));
 
-  $('back-btn').addEventListener('click',    e => { e.stopPropagation(); Nav.back(); });
-  $('back-btn').addEventListener('pointerdown', e => e.stopPropagation());
+  // FIX #2: Removed pointerdown stopPropagation which was causing double-click bug.
+  // A single click now immediately calls Nav.back().
+  $('back-btn').addEventListener('click', () => Nav.back());
 
   const _hubBtn = $('hub-btn');
   if (_hubBtn) {
@@ -3122,6 +3144,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('btn-report').addEventListener('click', openReport);
   // 'View Report as PDF' calls generatePDF('preview')
+  // FIX #1: Wire "View Report as PDF" button → calls generatePDF('preview')
+  const _btnViewPdf = $('btn-view-pdf');
+  if (_btnViewPdf) _btnViewPdf.addEventListener('click', () => generatePDF('preview'));
+  // FIX #6: Download PDF button shows "Download Only" / "Yes, Complete" modal
   $('btn-pdf').addEventListener('click', () => generatePDF('download'));
   $('btn-refresh-rpt').addEventListener('click', buildReport);
   $('btn-back-survey').addEventListener('click', () => {
@@ -3200,6 +3226,21 @@ document.addEventListener('DOMContentLoaded', () => {
     _catScrollLeft.addEventListener('click', () => _catbar.scrollBy({ left: -250, behavior: 'smooth' }));
   if (_catScrollRight && _catbar)
     _catScrollRight.addEventListener('click', () => _catbar.scrollBy({ left: 250, behavior: 'smooth' }));
+
+  // FIX #3: Desktop/tablet row click cycles status (not on touch-only devices)
+  const _accordion = $('accordion');
+  if (_accordion) {
+    _accordion.addEventListener('click', e => {
+      // Only on devices that support hover (desktop/tablet)
+      if (!window.matchMedia('(hover: hover)').matches) return;
+      const row = e.target.closest('.item-row');
+      if (!row) return;
+      // Don't trigger if clicking a button inside the row
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      const itemId = row.dataset.itemId;
+      if (itemId) cycleStatus(itemId);
+    });
+  }
 
   // Search
   initSearchBar();
