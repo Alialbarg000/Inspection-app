@@ -263,8 +263,11 @@ function renderDashboard() {
           </div>
         </div>`;
 
+      const rowClickFn = isCompleted
+        ? `loadProjectAndViewReport('${p.id}')`
+        : `loadProjectAndContinue('${p.id}')`;
       return `
-        <div class="dash-project-row" onclick="event.target.closest('.dash-actions-cell') || ${isCompleted ? `loadProjectAndViewReport('${p.id}')` : `loadProjectAndContinue('${p.id}')`}">
+        <div class="dash-project-row" onclick="if(!event.target.closest('.dash-actions-cell')){${rowClickFn};}">
           <div class="dash-status-badge ${statusClass}">
             <span class="status-dot"></span>
             ${statusLabel}
