@@ -3143,13 +3143,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   $('btn-report').addEventListener('click', openReport);
-  // 'View Report as PDF' calls generatePDF('preview')
-  // FIX #1: Wire "View Report as PDF" button → calls generatePDF('preview')
-  const _btnViewPdf = $('btn-view-pdf');
-  if (_btnViewPdf) _btnViewPdf.addEventListener('click', () => generatePDF('preview'));
-  // FIX #6: Download PDF button shows "Download Only" / "Yes, Complete" modal
-  const _btnPdf = $('btn-pdf');
-  if (_btnPdf) _btnPdf.addEventListener('click', () => generatePDF('download'));
+ // Event delegation for dynamically rendered PDF buttons
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'btn-view-pdf') generatePDF('preview');
+    if (e.target.id === 'btn-pdf') generatePDF('download');
+  });
   $('btn-refresh-rpt').addEventListener('click', buildReport);
   $('btn-back-survey').addEventListener('click', () => {
     if (Nav.current()==='report' && Nav.stack.length>1) Nav.stack.pop();
